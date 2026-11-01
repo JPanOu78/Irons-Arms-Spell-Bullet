@@ -61,11 +61,8 @@ public class GunplayEvents {
         SpellChamberData chamber = gunStack.get(ModDataComponents.LOADED_SPELLS.get());
         if (chamber == null || chamber.isEmpty()) return;
 
-        // Pop next round from chamber
-        SpellChamberData.PopResult pop = chamber.popNext();
-        gunStack.set(ModDataComponents.LOADED_SPELLS.get(), pop.remaining());
-
-        SpellChamberData.SpellSlotEntry entry = pop.popped();
+        // Peek next round from chamber without popping it
+        SpellChamberData.SpellSlotEntry entry = chamber.peekNext();
         if (entry != null && entry.hasSpell()) {
             // Attach spell to shot profile
             profile.components().set(SHOT_SPELL, entry);
@@ -73,20 +70,11 @@ public class GunplayEvents {
             // Nullify firearm physical damage for spell bullets so only spell damage is dealt
             profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
 
-            // Completely clear standard firearm bullet rendering & tracer lines
+            // Completely clear standard firearm bullet rendering & tracer lines (no bullet rendered)
             if (profile.components().has(ShotComponents.PARTICLE_TRAIL)) {
                 ParticleStack stack = profile.components().getOrDefault(ShotComponents.PARTICLE_TRAIL);
                 stack.getParticles().clear();
                 stack.getAccents().clear();
-
-                // For non-projectile spells only, add pure magical particles (no gun bullet tracer)
-                AbstractSpell spell = entry.getSpell();
-                if (spell != null && !SpellProjectileFactory.isProjectileSpell(spell)) {
-                    ParticleOptions trailParticle = SpellBulletEffectHandler.getTrailParticleForSchool(spell.getSchoolType());
-                    if (trailParticle != null) {
-                        stack.add(trailParticle);
-                    }
-                }
             }
         }
     }
@@ -110,6 +98,16 @@ public class GunplayEvents {
 
         ShotProfile profile = event.getShotProfile();
         if (profile == null) return;
+
+        // Pop the round from chamber now that the gun is officially firing on the server
+        ItemStack gunStack = profile.itemStack();
+        if (gunStack != null && !gunStack.isEmpty()) {
+            SpellChamberData chamber = gunStack.get(ModDataComponents.LOADED_SPELLS.get());
+            if (chamber != null && !chamber.isEmpty()) {
+                SpellChamberData.PopResult pop = chamber.popNext();
+                gunStack.set(ModDataComponents.LOADED_SPELLS.get(), pop.remaining());
+            }
+        }
 
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {

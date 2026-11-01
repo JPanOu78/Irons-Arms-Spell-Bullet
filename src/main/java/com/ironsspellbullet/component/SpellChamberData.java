@@ -41,6 +41,16 @@ public record SpellChamberData(List<SpellSlotEntry> loadedSpells) {
     }
 
     /**
+     * Peeks at the next bullet in the chamber without removing it.
+     */
+    public SpellSlotEntry peekNext() {
+        if (isEmpty()) {
+            return SpellSlotEntry.EMPTY;
+        }
+        return loadedSpells.getFirst();
+    }
+
+    /**
      * Pops the next bullet from the chamber (FIFO: First-In-First-Out).
      * Returns a pair of the popped entry and the new SpellChamberData.
      */

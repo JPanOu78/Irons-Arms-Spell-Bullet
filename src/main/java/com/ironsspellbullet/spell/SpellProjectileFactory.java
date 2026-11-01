@@ -5,7 +5,9 @@ import io.redspace.ironsspellbooks.entity.spells.AbstractMagicProjectile;
 import io.redspace.ironsspellbooks.entity.spells.acid_orb.AcidOrb;
 import io.redspace.ironsspellbooks.entity.spells.ball_lightning.BallLightning;
 import io.redspace.ironsspellbooks.entity.spells.blood_needle.BloodNeedle;
+import io.redspace.ironsspellbooks.entity.spells.blood_slash.BloodSlashProjectile;
 import io.redspace.ironsspellbooks.entity.spells.comet.Comet;
+import io.redspace.ironsspellbooks.entity.spells.fire_arrow.FireArrowProjectile;
 import io.redspace.ironsspellbooks.entity.spells.fireball.MagicFireball;
 import io.redspace.ironsspellbooks.entity.spells.firebolt.FireboltProjectile;
 import io.redspace.ironsspellbooks.entity.spells.guiding_bolt.GuidingBoltProjectile;
@@ -13,7 +15,10 @@ import io.redspace.ironsspellbooks.entity.spells.icicle.IcicleProjectile;
 import io.redspace.ironsspellbooks.entity.spells.lightning_lance.LightningLanceProjectile;
 import io.redspace.ironsspellbooks.entity.spells.magic_arrow.MagicArrowProjectile;
 import io.redspace.ironsspellbooks.entity.spells.magic_missile.MagicMissileProjectile;
+import io.redspace.ironsspellbooks.entity.spells.magma_ball.FireBomb;
 import io.redspace.ironsspellbooks.entity.spells.poison_arrow.PoisonArrow;
+import io.redspace.ironsspellbooks.entity.spells.snowball.Snowball;
+import io.redspace.ironsspellbooks.entity.spells.WitherSkullProjectile;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -29,6 +34,7 @@ public class SpellProjectileFactory {
         if (spell == null) return false;
         String path = spell.getSpellResource().getPath();
         return path.contains("fireball") ||
+                path.contains("magma") ||
                 path.contains("icicle") ||
                 path.contains("magic_missile") ||
                 path.contains("lightning_lance") ||
@@ -37,7 +43,13 @@ public class SpellProjectileFactory {
                 path.contains("firebolt") ||
                 path.contains("guiding_bolt") ||
                 path.contains("poison_arrow") ||
-                path.contains("magic_arrow");
+                path.contains("magic_arrow") ||
+                path.contains("comet") ||
+                path.contains("ball_lightning") ||
+                path.contains("blood_slash") ||
+                path.contains("wither_skull") ||
+                path.contains("fire_arrow") ||
+                path.contains("snowball");
     }
 
     /**
@@ -58,6 +70,11 @@ public class SpellProjectileFactory {
             MagicFireball fireball = new MagicFireball(level, shooter);
             fireball.setExplosionRadius(2.0f + spellLevel * 0.4f);
             projectile = fireball;
+        } else if (path.contains("magma")) {
+            FireBomb bomb = new FireBomb(level, shooter);
+            bomb.setExplosionRadius(2.5f + spellLevel * 0.4f);
+            bomb.setAoeDamage(damage * 0.75f);
+            projectile = bomb;
         } else if (path.contains("icicle")) {
             projectile = new IcicleProjectile(level, shooter);
         } else if (path.contains("magic_missile")) {
@@ -80,6 +97,14 @@ public class SpellProjectileFactory {
             projectile = new Comet(level, shooter);
         } else if (path.contains("ball_lightning")) {
             projectile = new BallLightning(level, shooter);
+        } else if (path.contains("blood_slash")) {
+            projectile = new BloodSlashProjectile(level, shooter);
+        } else if (path.contains("wither_skull")) {
+            projectile = new WitherSkullProjectile(level, shooter);
+        } else if (path.contains("fire_arrow")) {
+            projectile = new FireArrowProjectile(level, shooter);
+        } else if (path.contains("snowball")) {
+            projectile = new Snowball(level, shooter);
         }
 
         if (projectile != null) {
@@ -95,4 +120,3 @@ public class SpellProjectileFactory {
         return false;
     }
 }
-
