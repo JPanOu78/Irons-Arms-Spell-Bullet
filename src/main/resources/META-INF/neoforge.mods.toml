@@ -1,0 +1,40 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0"
+
+[[mods]]
+modId="irons_spell_bullet"
+version="1.0.0"
+displayName="Iron's Arms Spell Bullet"
+description='''
+Combines the arcane arts with black powder firepower! Enables infusing and discharging spells through firearms from Iron's Arms 'n Artifice and Iron's Spells 'n Spellbooks.
+'''
+authors="mrzero784"
+
+[[dependencies.irons_spell_bullet]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.irons_spell_bullet]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.irons_spell_bullet]]
+    modId="irons_spellbooks"
+    type="required"
+    versionRange="[1.21.1-3.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.irons_spell_bullet]]
+    modId="irons_artifice"
+    type="required"
+    versionRange="[1.21.1-1.0,)"
+    ordering="AFTER"
+    side="BOTH"
