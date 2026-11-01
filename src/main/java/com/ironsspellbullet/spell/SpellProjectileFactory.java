@@ -1,5 +1,6 @@
 package com.ironsspellbullet.spell;
 
+import com.ironsspellbullet.compat.GTBCSpellHelper;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.entity.spells.AbstractMagicProjectile;
 import io.redspace.ironsspellbooks.entity.spells.ArrowVolleyEntity;
@@ -34,7 +35,7 @@ public class SpellProjectileFactory {
     public static final double BULLET_SPEED = 3.8;
 
     /**
-     * Checks if the given spell is a projectile-type spell.
+     * Checks if the given spell is a projectile-type spell (Iron's Spells + GTBC Spells).
      */
     public static boolean isProjectileSpell(AbstractSpell spell) {
         if (spell == null) return false;
@@ -64,30 +65,88 @@ public class SpellProjectileFactory {
                 path.contains("poison_arrow") ||
                 path.contains("guiding_bolt") ||
                 path.contains("creeper") ||
-                path.contains("arrow_volley");
+                path.contains("arrow_volley") ||
+                // GTBC spells
+                path.contains("psychic_bolt") ||
+                path.contains("dripstone_bolt") ||
+                path.contains("eroding_boulder") ||
+                path.contains("chunker");
     }
 
     /**
-     * Checks if the spell is a projectile-type spell.
-     * If so, launches the actual projectile entity directly from the gun's muzzle at bullet speed.
-     * Returns true if launched as projectile entity.
+     * Launches the actual spell projectile(s) directly from the gun's muzzle.
+     * Fully supports shotgun firing: when projectileCount > 1, fires multiple scattered projectiles!
      */
-    public static boolean tryLaunchProjectile(ServerLevel level, LivingEntity shooter, Vec3 origin, Vec3 direction, AbstractSpell spell, int spellLevel) {
+    public static boolean tryLaunchProjectile(
+            ServerLevel level,
+            LivingEntity shooter,
+            Vec3 origin,
+            Vec3 direction,
+            AbstractSpell spell,
+            int spellLevel,
+            int projectileCount,
+            float spread
+    ) {
         if (spell == null) return false;
 
         String path = spell.getSpellResource().getPath().toLowerCase();
         float power = spell.getSpellPower(spellLevel, shooter);
-        float damage = Math.max(8.0f, power * 2.8f);
+        float baseDamage = Math.max(8.0f, power * 2.8f);
 
+        int count = Math.max(1, projectileCount);
+        float damagePerPellet = (count > 1)
+                ? Math.max(3.0f, baseDamage / (float) Math.sqrt(count))
+                : baseDamage;
+
+        boolean anyLaunched = false;
+
+        for (int i = 0; i < count; i++) {
+            Vec3 pelletDir = direction.normalize();
+            // Apply shotgun spread inaccuracy
+            if (count > 1 && spread > 0.0f) {
+                pelletDir = pelletDir.add(
+                        level.random.triangle(0.0, 0.0172275 * (double) spread),
+                        level.random.triangle(0.0, 0.0172275 * (double) spread),
+                        level.random.triangle(0.0, 0.0172275 * (double) spread)
+                ).normalize();
+            }
+
+            boolean launched = launchSingle(level, shooter, origin, pelletDir, spell, path, spellLevel, damagePerPellet, count);
+            if (launched) {
+                anyLaunched = true;
+            }
+        }
+
+        return anyLaunched;
+    }
+
+    private static boolean launchSingle(
+            ServerLevel level,
+            LivingEntity shooter,
+            Vec3 origin,
+            Vec3 direction,
+            AbstractSpell spell,
+            String path,
+            int spellLevel,
+            float damage,
+            int totalPellets
+    ) {
+        // 1. Check GTBC Projectiles first
+        if (GTBCSpellHelper.isGTBCProjectile(path)) {
+            boolean gtbcLaunched = GTBCSpellHelper.tryLaunchGTBCProjectile(level, shooter, origin, direction, path, damage, BULLET_SPEED);
+            if (gtbcLaunched) return true;
+        }
+
+        // 2. Iron's Spells Magic Projectiles
         AbstractMagicProjectile projectile = null;
 
         if (path.contains("fireball")) {
             MagicFireball fireball = new MagicFireball(level, shooter);
-            fireball.setExplosionRadius(2.0f + spellLevel * 0.4f);
+            fireball.setExplosionRadius(totalPellets > 1 ? 1.5f + spellLevel * 0.2f : 2.0f + spellLevel * 0.4f);
             projectile = fireball;
         } else if (path.contains("magma")) {
             FireBomb bomb = new FireBomb(level, shooter);
-            bomb.setExplosionRadius(2.5f + spellLevel * 0.4f);
+            bomb.setExplosionRadius(totalPellets > 1 ? 1.8f + spellLevel * 0.25f : 2.5f + spellLevel * 0.4f);
             bomb.setAoeDamage(damage * 0.75f);
             projectile = bomb;
         } else if (path.contains("firebolt")) {
@@ -131,8 +190,8 @@ public class SpellProjectileFactory {
         } else if (path.contains("arrow_volley")) {
             ArrowVolleyEntity volley = new ArrowVolleyEntity(EntityRegistry.ARROW_VOLLEY_ENTITY.get(), level);
             volley.setOwner(shooter);
-            volley.setRows(2 + spellLevel / 2);
-            volley.setArrowsPerRow(4 + spellLevel);
+            volley.setRows(Math.max(1, 2 + spellLevel / 2));
+            volley.setArrowsPerRow(Math.max(2, 4 + spellLevel));
             projectile = volley;
         }
 
@@ -140,7 +199,6 @@ public class SpellProjectileFactory {
             projectile.setPos(origin.x, origin.y, origin.z);
             projectile.setDamage(damage);
             projectile.shoot(direction);
-            // Accelerate velocity to match ballistic bullet speed
             projectile.setDeltaMovement(direction.normalize().scale(BULLET_SPEED));
             level.addFreshEntity(projectile);
             return true;

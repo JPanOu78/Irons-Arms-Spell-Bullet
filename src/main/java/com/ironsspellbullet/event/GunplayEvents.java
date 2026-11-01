@@ -114,14 +114,19 @@ public class GunplayEvents {
             AbstractSpell spell = entry.getSpell();
             int level = entry.spellLevel();
 
-            // Try launching directly from gun muzzle at bullet speed for projectile-type spells
+            int projectileCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
+            float spread = io.redspace.irons_artifice.item.GunplayManager.getSpreadForEntity(profile, shooter);
+
+            // Try launching directly from gun muzzle at bullet speed for projectile-type spells (supporting shotgun spread)
             boolean launched = SpellProjectileFactory.tryLaunchProjectile(
                     serverLevel,
                     shooter,
                     event.getOrigin(),
                     event.getDirection(),
                     spell,
-                    level
+                    level,
+                    projectileCount,
+                    spread
             );
 
             if (launched) {

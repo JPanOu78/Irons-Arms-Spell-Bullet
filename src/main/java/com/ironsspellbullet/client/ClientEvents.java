@@ -1,13 +1,14 @@
 package com.ironsspellbullet.client;
 
 import com.ironsspellbullet.IronsArmsSpellBulletMod;
-import com.ironsspellbullet.client.gui.SpellBulletWheelOverlay;
+import com.ironsspellbullet.client.gui.SpellBulletActionbarOverlay;
 import com.ironsspellbullet.client.gui.SpellWheelOption;
 import com.ironsspellbullet.event.ActiveSpellBulletManager;
 import com.ironsspellbullet.event.ReloadHelper;
 import com.ironsspellbullet.item.ModItems;
 import com.ironsspellbullet.item.SpellBulletItem;
 import com.ironsspellbullet.network.ServerboundSelectSpellBulletPacket;
+import io.redspace.irons_artifice.item.GunItem;
 import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
 import io.redspace.ironsspellbooks.api.util.Utils;
@@ -50,8 +51,11 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void registerGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAbove(VanillaGuiLayers.HOTBAR, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(IronsArmsSpellBulletMod.MODID, "spell_bullet_wheel"),
-                SpellBulletWheelOverlay.INSTANCE);
+        event.registerAbove(
+                VanillaGuiLayers.HOTBAR,
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(IronsArmsSpellBulletMod.MODID, "spell_bullet_actionbar"),
+                SpellBulletActionbarOverlay.INSTANCE
+        );
     }
 
     @SubscribeEvent
@@ -81,7 +85,32 @@ public class ClientEvents {
 
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
-            SpellBulletWheelOverlay.tick();
+            SpellBulletActionbarOverlay.tick();
+
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null && mc.screen == null) {
+                boolean isAltActive = KEY_SELECT_SPELL_BULLET.isDown() || Screen.hasAltDown();
+                ItemStack main = mc.player.getMainHandItem();
+                ItemStack off = mc.player.getOffhandItem();
+                boolean holdingGun = (main.getItem() instanceof GunItem) || (off.getItem() instanceof GunItem);
+
+                // If holding Alt while wielding a gun, show the Action Bar continuously
+                if (isAltActive && holdingGun) {
+                    List<SpellWheelOption> available = getAvailableOptions(mc.player);
+                    if (!available.isEmpty()) {
+                        String currentId = ActiveSpellBulletManager.getSelectedSpell(mc.player.getUUID());
+                        int foundIdx = 0;
+                        for (int i = 0; i < available.size(); i++) {
+                            if (available.get(i).id().equals(currentId)) {
+                                foundIdx = i;
+                                break;
+                            }
+                        }
+                        currentSelectionIndex = foundIdx;
+                        SpellBulletActionbarOverlay.show(SpellBulletActionbarOverlay.MAX_DISPLAY_TICKS, available, currentSelectionIndex);
+                    }
+                }
+            }
         }
 
         @SubscribeEvent
@@ -92,6 +121,11 @@ public class ClientEvents {
             // Trigger when holding Alt or the dedicated keybind
             boolean isAltActive = KEY_SELECT_SPELL_BULLET.isDown() || Screen.hasAltDown();
             if (!isAltActive) return;
+
+            ItemStack main = mc.player.getMainHandItem();
+            ItemStack off = mc.player.getOffhandItem();
+            boolean holdingGun = (main.getItem() instanceof GunItem) || (off.getItem() instanceof GunItem);
+            if (!holdingGun) return;
 
             List<SpellWheelOption> available = getAvailableOptions(mc.player);
             if (available.isEmpty()) return;
@@ -122,15 +156,15 @@ public class ClientEvents {
             currentSelectionIndex = Math.floorMod(currentSelectionIndex, available.size());
             SpellWheelOption selected = available.get(currentSelectionIndex);
 
-            // Play light feedback click sound
-            mc.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, 1.8f);
+            // Play crisp feedback click sound
+            mc.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.5f, 1.6f);
 
             // Update client state and notify server
             ActiveSpellBulletManager.setSelectedSpell(mc.player.getUUID(), selected.id());
             PacketDistributor.sendToServer(new ServerboundSelectSpellBulletPacket(selected.id()));
 
-            // Activate and display HUD overlay
-            SpellBulletWheelOverlay.show(70, available, currentSelectionIndex);
+            // Activate and display Action Bar HUD overlay
+            SpellBulletActionbarOverlay.show(SpellBulletActionbarOverlay.MAX_DISPLAY_TICKS, available, currentSelectionIndex);
         }
 
         public static List<SpellWheelOption> getAvailableOptions(Player player) {
