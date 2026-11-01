@@ -10,6 +10,7 @@ import io.redspace.irons_artifice.api.ComposeShotEvent;
 import io.redspace.irons_artifice.api.GunShootEvent;
 import io.redspace.irons_artifice.data.ComponentType;
 import io.redspace.irons_artifice.data.ShotComponents;
+import io.redspace.irons_artifice.data.Value;
 import io.redspace.irons_artifice.entity.Bullet;
 import io.redspace.irons_artifice.gun.ShotProfile;
 import io.redspace.irons_artifice.item.GunItem;
@@ -67,6 +68,9 @@ public class GunplayEvents {
             // Attach spell to shot profile
             profile.components().set(SHOT_SPELL, entry);
 
+            // Nullify firearm physical damage for spell bullets so only spell damage is dealt
+            profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
+
             // Add elemental trail particles to the bullet
             AbstractSpell spell = entry.getSpell();
             if (spell != null) {
@@ -117,9 +121,13 @@ public class GunplayEvents {
         if (profile == null) return;
 
         // If the spell was already launched as a supersonic projectile entity from the muzzle,
-        // the projectile itself handles impact
+        // cancel the bullet impact completely so zero firearm damage or effects occur
         Boolean alreadyLaunched = profile.components().getOrDefault(LAUNCHED_AS_PROJECTILE);
-        if (Boolean.TRUE.equals(alreadyLaunched)) return;
+        if (Boolean.TRUE.equals(alreadyLaunched)) {
+            event.setCanceled(true);
+            bullet.discard();
+            return;
+        }
 
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {
@@ -131,6 +139,10 @@ public class GunplayEvents {
                     shooter,
                     entry.toSpellData()
             );
+
+            // Cancel the normal bullet impact so zero firearm physical damage is applied
+            event.setCanceled(true);
+            bullet.discard();
         }
     }
 
