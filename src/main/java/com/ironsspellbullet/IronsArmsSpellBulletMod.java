@@ -30,6 +30,7 @@ public class IronsArmsSpellBulletMod {
         ModDataComponents.register(modEventBus);
         ModItems.register(modEventBus);
         ModRecipes.register(modEventBus);
+        com.ironsspellbullet.network.ModNetwork.register(modEventBus);
 
         // Creative mode tab integration
         modEventBus.addListener(this::addCreative);

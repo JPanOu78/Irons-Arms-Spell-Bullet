@@ -88,3 +88,4 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
         return ModRecipes.SPELL_BULLET_RECIPE_SERIALIZER.get();
     }
 }
+

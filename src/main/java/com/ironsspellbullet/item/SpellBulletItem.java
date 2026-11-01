@@ -80,3 +80,4 @@ public class SpellBulletItem extends Item {
         return SpellData.EMPTY;
     }
 }
+

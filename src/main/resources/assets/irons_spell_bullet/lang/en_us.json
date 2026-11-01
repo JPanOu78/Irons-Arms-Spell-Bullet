@@ -5,5 +5,8 @@
   "tooltip.irons_spell_bullet.instant_fire": "⚡ Instant Arcane Release on Impact",
   "tooltip.irons_spell_bullet.zero_mana": "✦ 0 Mana Cost (Ammo-Powered)",
   "tooltip.irons_spell_bullet.blank": "Blank Arcane Bullet",
-  "tooltip.irons_spell_bullet.chamber_header": "✦ Loaded Arcane Chamber:"
+  "tooltip.irons_spell_bullet.chamber_header": "✦ Loaded Arcane Chamber:",
+  "key.irons_spell_bullet.select_bullet": "Select Arcane Bullet (Alt + Scroll)",
+  "key.category.irons_spell_bullet": "Iron's Arms Spell Bullet",
+  "gui.irons_spell_bullet.select_title": "✦ Arcane Bullet Quick Select"
 }

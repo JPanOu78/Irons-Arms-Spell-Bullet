@@ -20,3 +20,4 @@ public class ModRecipes {
         RECIPE_SERIALIZERS.register(eventBus);
     }
 }
+

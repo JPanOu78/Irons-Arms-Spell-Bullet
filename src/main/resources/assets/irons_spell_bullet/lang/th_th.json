@@ -5,5 +5,8 @@
   "tooltip.irons_spell_bullet.instant_fire": "⚡ ปลดปล่อยพลังเวททันทีเมื่อกระทบเป้าหมาย",
   "tooltip.irons_spell_bullet.zero_mana": "✦ ไม่เสียมานา (ใช้พลังงานกระสุน)",
   "tooltip.irons_spell_bullet.blank": "กระสุนเวทว่างเปล่า",
-  "tooltip.irons_spell_bullet.chamber_header": "✦ กระสุนเวทในรังเพลิง:"
+  "tooltip.irons_spell_bullet.chamber_header": "✦ กระสุนเวทในรังเพลิง:",
+  "key.irons_spell_bullet.select_bullet": "เลือกกระสุนเวทมนตร์ (Alt + Scroll)",
+  "key.category.irons_spell_bullet": "Iron's Arms Spell Bullet",
+  "gui.irons_spell_bullet.select_title": "✦ วงล้อเลือกกระสุนเวทมนตร์"
 }

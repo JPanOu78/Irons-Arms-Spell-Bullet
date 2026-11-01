@@ -4,8 +4,10 @@ import com.ironsspellbullet.IronsArmsSpellBulletMod;
 import com.ironsspellbullet.component.ModDataComponents;
 import com.ironsspellbullet.component.SpellChamberData;
 import com.ironsspellbullet.spell.SpellBulletEffectHandler;
+import com.ironsspellbullet.spell.SpellProjectileFactory;
 import io.redspace.irons_artifice.api.BulletImpactEvent;
 import io.redspace.irons_artifice.api.ComposeShotEvent;
+import io.redspace.irons_artifice.api.GunShootEvent;
 import io.redspace.irons_artifice.data.ComponentType;
 import io.redspace.irons_artifice.data.ShotComponents;
 import io.redspace.irons_artifice.entity.Bullet;
@@ -18,6 +20,7 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -36,6 +39,12 @@ public class GunplayEvents {
             new ComponentType<>(
                     ResourceLocation.fromNamespaceAndPath(IronsArmsSpellBulletMod.MODID, "shot_spell"),
                     () -> SpellChamberData.SpellSlotEntry.EMPTY
+            );
+
+    public static final ComponentType<Boolean> LAUNCHED_AS_PROJECTILE =
+            new ComponentType<>(
+                    ResourceLocation.fromNamespaceAndPath(IronsArmsSpellBulletMod.MODID, "launched_projectile"),
+                    () -> false
             );
 
     @SubscribeEvent
@@ -71,12 +80,46 @@ public class GunplayEvents {
     }
 
     @SubscribeEvent
+    public void onGunShootPre(GunShootEvent.Pre event) {
+        LivingEntity shooter = event.getEntity();
+        if (shooter == null || !(shooter.level() instanceof ServerLevel serverLevel)) return;
+
+        ShotProfile profile = event.getShotProfile();
+        if (profile == null) return;
+
+        SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
+        if (entry != null && entry.hasSpell()) {
+            AbstractSpell spell = entry.getSpell();
+            int level = entry.spellLevel();
+
+            // Try launching directly from gun muzzle at bullet speed for projectile-type spells
+            boolean launched = SpellProjectileFactory.tryLaunchProjectile(
+                    serverLevel,
+                    shooter,
+                    event.getOrigin(),
+                    event.getDirection(),
+                    spell,
+                    level
+            );
+
+            if (launched) {
+                profile.components().set(LAUNCHED_AS_PROJECTILE, true);
+            }
+        }
+    }
+
+    @SubscribeEvent
     public void onBulletImpact(BulletImpactEvent event) {
         Bullet bullet = event.getBullet();
         if (bullet == null || bullet.level().isClientSide()) return;
 
         ShotProfile profile = bullet.getProfile();
         if (profile == null) return;
+
+        // If the spell was already launched as a supersonic projectile entity from the muzzle,
+        // the projectile itself handles impact
+        Boolean alreadyLaunched = profile.components().getOrDefault(LAUNCHED_AS_PROJECTILE);
+        if (Boolean.TRUE.equals(alreadyLaunched)) return;
 
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {

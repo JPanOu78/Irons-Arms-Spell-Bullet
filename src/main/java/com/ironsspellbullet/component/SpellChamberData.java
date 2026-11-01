@@ -107,3 +107,4 @@ public record SpellChamberData(List<SpellSlotEntry> loadedSpells) {
         }
     }
 }
+

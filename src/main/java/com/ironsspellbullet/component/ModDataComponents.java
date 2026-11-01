@@ -23,3 +23,4 @@ public class ModDataComponents {
         DATA_COMPONENTS.register(eventBus);
     }
 }
+
