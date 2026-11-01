@@ -9,6 +9,7 @@ import io.redspace.irons_artifice.api.BulletImpactEvent;
 import io.redspace.irons_artifice.api.ComposeShotEvent;
 import io.redspace.irons_artifice.api.GunShootEvent;
 import io.redspace.irons_artifice.data.ComponentType;
+import io.redspace.irons_artifice.data.ParticleStack;
 import io.redspace.irons_artifice.data.ShotComponents;
 import io.redspace.irons_artifice.data.Value;
 import io.redspace.irons_artifice.entity.Bullet;
@@ -25,6 +26,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 import java.util.LinkedHashMap;
@@ -71,14 +73,32 @@ public class GunplayEvents {
             // Nullify firearm physical damage for spell bullets so only spell damage is dealt
             profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
 
-            // Add elemental trail particles to the bullet
-            AbstractSpell spell = entry.getSpell();
-            if (spell != null) {
-                SchoolType school = spell.getSchoolType();
-                ParticleOptions trailParticle = SpellBulletEffectHandler.getTrailParticleForSchool(school);
-                if (trailParticle != null && profile.components().has(ShotComponents.PARTICLE_TRAIL)) {
-                    profile.components().getOrDefault(ShotComponents.PARTICLE_TRAIL).add(trailParticle);
+            // Completely clear standard firearm bullet rendering & tracer lines
+            if (profile.components().has(ShotComponents.PARTICLE_TRAIL)) {
+                ParticleStack stack = profile.components().getOrDefault(ShotComponents.PARTICLE_TRAIL);
+                stack.getParticles().clear();
+                stack.getAccents().clear();
+
+                // For non-projectile spells only, add pure magical particles (no gun bullet tracer)
+                AbstractSpell spell = entry.getSpell();
+                if (spell != null && !SpellProjectileFactory.isProjectileSpell(spell)) {
+                    ParticleOptions trailParticle = SpellBulletEffectHandler.getTrailParticleForSchool(spell.getSchoolType());
+                    if (trailParticle != null) {
+                        stack.add(trailParticle);
+                    }
                 }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (event.getEntity() instanceof Bullet bullet) {
+            ShotProfile profile = bullet.getProfile();
+            if (profile != null && Boolean.TRUE.equals(profile.components().getOrDefault(LAUNCHED_AS_PROJECTILE))) {
+                // If the spell was already launched as a supersonic magic projectile from the muzzle,
+                // cancel adding the firearm Bullet entity to the level entirely so it never renders or exists!
+                event.setCanceled(true);
             }
         }
     }

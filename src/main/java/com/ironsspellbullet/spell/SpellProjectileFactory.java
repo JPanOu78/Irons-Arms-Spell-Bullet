@@ -23,6 +23,24 @@ public class SpellProjectileFactory {
     public static final double BULLET_SPEED = 3.8;
 
     /**
+     * Checks if the given spell is a projectile-type spell.
+     */
+    public static boolean isProjectileSpell(AbstractSpell spell) {
+        if (spell == null) return false;
+        String path = spell.getSpellResource().getPath();
+        return path.contains("fireball") ||
+                path.contains("icicle") ||
+                path.contains("magic_missile") ||
+                path.contains("lightning_lance") ||
+                path.contains("blood_needles") ||
+                path.contains("acid_orb") ||
+                path.contains("firebolt") ||
+                path.contains("guiding_bolt") ||
+                path.contains("poison_arrow") ||
+                path.contains("magic_arrow");
+    }
+
+    /**
      * Checks if the spell is a projectile-type spell.
      * If so, launches the actual projectile entity directly from the gun's muzzle at bullet speed.
      * Returns true if launched as projectile entity.
