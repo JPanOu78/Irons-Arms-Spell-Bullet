@@ -1,4 +1,9 @@
 {
-  "mod.irons_spell_bullet.name": "Iron's Arms Spell Bullet",
-  "mod.irons_spell_bullet.desc": "Infuse spells into firearms and ammunition from Iron's Arms and Iron's Spells."
+  "item.irons_spell_bullet.spell_bullet": "Spell Bullet",
+  "item.irons_spell_bullet.spell_bullet.named": "Spell Bullet (%s)",
+  "tooltip.irons_spell_bullet.school_info": "Magic School: %s",
+  "tooltip.irons_spell_bullet.instant_fire": "⚡ Instant Arcane Release on Impact",
+  "tooltip.irons_spell_bullet.zero_mana": "✦ 0 Mana Cost (Ammo-Powered)",
+  "tooltip.irons_spell_bullet.blank": "Blank Arcane Bullet",
+  "tooltip.irons_spell_bullet.chamber_header": "✦ Loaded Arcane Chamber:"
 }

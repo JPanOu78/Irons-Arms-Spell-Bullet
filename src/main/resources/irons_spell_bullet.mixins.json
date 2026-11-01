@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.ironsspellbullet.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "GunplayManagerMixin"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

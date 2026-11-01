@@ -1,31 +1,42 @@
-# ⚡ Iron's Arms Spell Bullet
+# Iron's Arms Spell Bullet 🔫✨
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.1-brightgreen.svg)](https://minecraft.net/)
-[![NeoForge](https://img.shields.io/badge/ModLoader-NeoForge-orange.svg)](https://neoforged.net/)
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
-A dedicated crossover mod for **Minecraft 1.21.1 (NeoForge)** combining **Iron's Arms 'n Artifice** with **Iron's Spells 'n Spellbooks**.
+ม็อดเชื่อมต่อพลังเวทมนตร์จาก **Iron's Spells 'n Spellbooks** เข้ากับระบบอาวุธปืนของ **Iron's Arms 'n Artifice** บน Minecraft NeoForge 1.21.1
 
 ---
 
-## 📖 Features
-- **Spell Infused Firearm Combat:** Allows channelling, imbuing, and discharging spells through firearms and ammunition.
-- **Deep Integration:** Built natively for Iron's Spells spellcasting and Iron's Artifice ballistics.
+## 🌟 จุดเด่นและระบบหลัก (Key Features)
+
+1. **ระบบคราฟต์กระสุนลงอาคม (Inscribed Spell Bullet Recipe):**
+   * วาง **Spell Scroll** ไว้ตรงกลางกริด 3x3 บนโต๊ะคราฟต์
+   * ล้อมรอบด้วย **Bullet (กระสุนปืน)** ทั้ง 8 ช่อง
+   * ได้รับ **Spell Bullet x8** ที่สลักเวทมนตร์และเลเวลจาก Scroll นั้นๆ
+2. **ข้ามเวลาการร่ายและคูลดาวน์ (Zero Cast Time & Zero Cooldown):**
+   * สับไกยิงเวทมนตร์ความเร็วสูงผ่านกระสุนปืนได้ทันที
+   * ความเร็วการยิงถูกควบคุมด้วยอัตราการยิง (Fire Rate) ของปืนแต่ละประเภท
+3. **ไม่เสียมานา (0 Mana Cost):**
+   * ขับเคลื่อนด้วยพลังงานกระสุน 100% ไม่ดึงมานาของผู้เล่นตอนยิง
+4. **พฤติกรรมเวทมนตร์แยกตามธาตุ/สายเวท (Elemental Impact Handlers):**
+   * 🔥 **Fire:** เกิดระเบิดเพลิงเผาไหม้ศัตรูในจุดตกกระทบ
+   * ❄️ **Ice:** แช่แข็งศัตรู (Freeze Ticks) + สะเก็ดน้ำแข็งกระจายสโลว์รอบตัว
+   * ⚡ **Lightning:** สร้างความเสียหายสายฟ้า + ชิ่งผ่าเป้าหมายใกล้เคียง (Chain Lightning)
+   * 🌟 **Holy:** สไมท์อันเดดรุนแรงเป็นพิเศษ / หากยิงใส่เพื่อนร่วมทีมหรือตัวเองจะช่วยฮีลเลือด + บัฟรีเจน
+   * 🌌 **Ender:** สร้างแรงโน้มถ่วงมิติ / ปลดปล่อย Black Hole หากใช้สโครลหลุมดำ
+   * 🩸 **Blood:** ดูดเลือด (Lifesteal) คืนให้กับผู้ยิง
+   * 🌿 **Nature:** ปล่อยหมอกพิษและรากไม้พันธนาการ
+   * 🪄 **Evocation:** เรียกคมเขี้ยว Evoker Fangs พุ่งโจมตีรอบจุดปะทะ
+   * 👁️ **Eldritch:** สร้างความมืดมิดและเรียกพลังหนวดมิติ
+5. **ระบบรังเพลิงอัจฉริยะ (Smart Chamber System):**
+   * เมื่อถือกระสุนเวทไว้ที่ **มือซ้าย (Offhand)** ตอนรีโหลด ปืนจะเลือกรีโหลดกระสุนเวทลงรังเพลิงก่อนเสมอ
+   * ปืนมี Tooltip แสดงรายการกระสุนเวทที่บรรจุอยู่ในรังเพลิงแบบเรียลไทม์
+   * อนุภาคกระสุน (Bullet Trail) เปล่งแสงและพ่นเอฟเฟกต์ตามธาตุของเวทมนตร์ที่ยิง
 
 ---
 
-## 📦 Requirements & Tested Versions
-
-| Mod | Tested Version | Required? |
-| :--- | :--- | :--- |
-| **Minecraft** | `1.21.1` | **Required** |
-| **NeoForge** | `21.1.249` (or `21.1.84`+) | **Required** |
-| **[Iron's Spells 'n Spellbooks](https://modrinth.com/mod/irons-spells-n-spellbooks)** | `1.21.1-3.16.3` | **Required** |
-| **[Iron's Arms 'n Artifice](https://modrinth.com/mod/irons-arms-n-artifice)** | `1.21.1-1.1.0` | **Required** |
-| **[Iron's Lib](https://modrinth.com/mod/irons-lib)** | `1.21.1-2.2.0` | **Required** |
-
----
-
-## 📜 License
-Licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
-Developed by **mrzero784**.
+## 🛠️ วิธีติดตั้งและใช้งาน (Installation)
+* **Minecraft Version:** 1.21.1
+* **Mod Loader:** NeoForge 21.1.84+
+* **Dependencies:**
+  * `irons_spellbooks` (Iron's Spells 'n Spellbooks)
+  * `irons_artifice` (Iron's Arms 'n Artifice)
+  * `geckolib`
+  * `curios`

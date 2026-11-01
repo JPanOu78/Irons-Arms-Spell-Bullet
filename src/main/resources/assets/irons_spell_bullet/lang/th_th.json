@@ -1,4 +1,9 @@
 {
-  "mod.irons_spell_bullet.name": "Iron's Arms Spell Bullet",
-  "mod.irons_spell_bullet.desc": "ผสานเวทมนตร์เข้ากับปืนและกระสุนของ Iron's Arms 'n Artifice และ Iron's Spells 'n Spellbooks"
+  "item.irons_spell_bullet.spell_bullet": "กระสุนเวทมนตร์",
+  "item.irons_spell_bullet.spell_bullet.named": "กระสุนเวท (%s)",
+  "tooltip.irons_spell_bullet.school_info": "สายเวทมนตร์: %s",
+  "tooltip.irons_spell_bullet.instant_fire": "⚡ ปลดปล่อยพลังเวททันทีเมื่อกระทบเป้าหมาย",
+  "tooltip.irons_spell_bullet.zero_mana": "✦ ไม่เสียมานา (ใช้พลังงานกระสุน)",
+  "tooltip.irons_spell_bullet.blank": "กระสุนเวทว่างเปล่า",
+  "tooltip.irons_spell_bullet.chamber_header": "✦ กระสุนเวทในรังเพลิง:"
 }
