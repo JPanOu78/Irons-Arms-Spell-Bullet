@@ -40,13 +40,31 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Handles the impact of a Spell Bullet, executing the spell's effect instantly at the target location.
  * Fully supports all schools, direct entities, AoEs, debuffs, buffs, and addon spells.
  */
 public class SpellBulletEffectHandler {
+
+    private static final Set<UUID> TRIGGERED_VOLLEYS = Collections.newSetFromMap(
+            new java.util.LinkedHashMap<UUID, Boolean>() {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<UUID, Boolean> eldest) {
+                    return size() > 500;
+                }
+            }
+    );
+
+    public static boolean checkAndMarkVolley(UUID shotId) {
+        if (shotId == null) return true;
+        return TRIGGERED_VOLLEYS.add(shotId);
+    }
 
     public static void onSpellBulletHit(Level level, HitResult hitResult, Entity bullet, LivingEntity shooter, SpellData spellData) {
         if (!(level instanceof ServerLevel serverLevel) || spellData == null || spellData.equals(SpellData.EMPTY)) {

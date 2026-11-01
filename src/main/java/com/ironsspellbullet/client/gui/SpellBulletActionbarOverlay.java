@@ -171,3 +171,4 @@ public class SpellBulletActionbarOverlay implements LayeredDraw.Layer {
         graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
+

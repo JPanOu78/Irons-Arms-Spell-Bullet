@@ -70,7 +70,29 @@ public class SpellProjectileFactory {
                 path.contains("psychic_bolt") ||
                 path.contains("dripstone_bolt") ||
                 path.contains("eroding_boulder") ||
-                path.contains("chunker");
+                path.contains("chunker") ||
+                // Beams and Rays
+                path.contains("solar_beam") ||
+                path.contains("ray_of_frost") ||
+                path.contains("ray_of_siphoning") ||
+                path.contains("soulfire_ray");
+    }
+
+    /**
+     * Checks if a spell is a heavy/explosive/ultimate spell that should fire
+     * as a single concentrated Slug Core in shotguns rather than spawning 7-8 copies.
+     */
+    public static boolean isHeavySpell(String path) {
+        return path.contains("fireball") ||
+                path.contains("magma") ||
+                path.contains("black_hole") ||
+                path.contains("comet") ||
+                path.contains("starfall") ||
+                path.contains("chunker") ||
+                path.contains("meteor") ||
+                path.contains("arrow_volley") ||
+                path.contains("earthshatter") ||
+                path.contains("solar_beam");
     }
 
     /**
@@ -131,13 +153,25 @@ public class SpellProjectileFactory {
             float damage,
             int totalPellets
     ) {
-        // 1. Check GTBC Projectiles first
+        // 1. Check Solar Beam & GTBC Projectiles first
+        if (path.contains("solar_beam")) {
+            boolean solarLaunched = GTBCSpellHelper.tryLaunchSolarBeam(level, shooter, origin, direction, damage);
+            if (solarLaunched) return true;
+        }
         if (GTBCSpellHelper.isGTBCProjectile(path)) {
             boolean gtbcLaunched = GTBCSpellHelper.tryLaunchGTBCProjectile(level, shooter, origin, direction, path, damage, BULLET_SPEED);
             if (gtbcLaunched) return true;
         }
 
-        // 2. Iron's Spells Magic Projectiles
+        // 2. Check Instant Ray / Beam Spells (Ray of Frost, etc.)
+        if (path.contains("ray_of_frost") || path.contains("ray_of_siphoning") || path.contains("soulfire_ray")) {
+            try {
+                spell.onCast(level, spellLevel, shooter, io.redspace.ironsspellbooks.api.spells.CastSource.SWORD, io.redspace.ironsspellbooks.api.magic.MagicData.getPlayerMagicData(shooter));
+                return true;
+            } catch (Throwable ignored) {}
+        }
+
+        // 3. Iron's Spells Magic Projectiles
         AbstractMagicProjectile projectile = null;
 
         if (path.contains("fireball")) {
@@ -198,6 +232,8 @@ public class SpellProjectileFactory {
         if (projectile != null) {
             projectile.setPos(origin.x, origin.y, origin.z);
             projectile.setDamage(damage);
+            // Disable gravity so Fireball, Magma Bomb, boulders, etc. fly straight without dropping
+            projectile.setNoGravity(true);
             projectile.shoot(direction);
             projectile.setDeltaMovement(direction.normalize().scale(BULLET_SPEED));
             level.addFreshEntity(projectile);

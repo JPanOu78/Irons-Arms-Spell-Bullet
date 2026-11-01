@@ -48,6 +48,12 @@ public class GunplayEvents {
                     () -> false
             );
 
+    public static final ComponentType<java.util.UUID> SHOT_ID =
+            new ComponentType<>(
+                    ResourceLocation.fromNamespaceAndPath(IronsArmsSpellBulletMod.MODID, "shot_id"),
+                    () -> null
+            );
+
     @SubscribeEvent
     public void onComposeShot(ComposeShotEvent event) {
         ShotProfile profile = event.getShotProfile();
@@ -68,13 +74,19 @@ public class GunplayEvents {
             // Nullify firearm physical damage for spell bullets so only spell damage is dealt
             profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
 
-            // Completely clear standard firearm bullet rendering & tracer lines (no bullet rendered)
-            profile.components().set(ShotComponents.PARTICLE_TRAIL, new ParticleStack());
-
-            // Check if this spell is a projectile-type spell.
-            // If so, mark it immediately so Bullet entity creation will be suppressed!
+            // Check if this spell is a projectile-type or beam-type spell.
             if (SpellProjectileFactory.isProjectileSpell(entry.getSpell())) {
+                // For projectile and beam spells (Fireball, Magma bomb, Firebolt, Icicle, Solar Beam, Ray of Frost, etc.):
+                // Launched directly as authentic magic entities/beams from the muzzle.
+                // Suppress firearm bullet entity and clear firearm tracer line so only magic entity is visible!
                 profile.components().set(LAUNCHED_AS_PROJECTILE, true);
+                profile.components().set(ShotComponents.PARTICLE_TRAIL, new ParticleStack());
+            } else {
+                // For targeted / impact spells (e.g. Sunbeam, Lightning Bolt, Blight, Raise Dead):
+                // DO NOT clear PARTICLE_TRAIL and DO NOT suppress Bullet entity!
+                // The bullet and its tracer ARE rendered in flight, and when it impacts the target/block,
+                // that impact serves as the TRIGGER to unleash the spell at hitPos!
+                profile.components().set(SHOT_ID, java.util.UUID.randomUUID());
             }
         }
     }
@@ -117,6 +129,16 @@ public class GunplayEvents {
             int projectileCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
             float spread = io.redspace.irons_artifice.item.GunplayManager.getSpreadForEntity(profile, shooter);
 
+            // Shotgun balance: -3 Spell Level penalty for shotguns
+            int effectiveLevel = (projectileCount > 1) ? Math.max(1, level - 3) : level;
+
+            // Shotgun Heavy Spell Handling:
+            // Heavy/Ultimate/AOE spells (Magma Bomb, Fireball, Black Hole, etc.) fire as 1 concentrated Slug Core instead of 7-8 copies!
+            if (projectileCount > 1 && SpellProjectileFactory.isHeavySpell(spell.getSpellResource().getPath().toLowerCase())) {
+                projectileCount = 1;
+                spread = 0.0f;
+            }
+
             // Try launching directly from gun muzzle at bullet speed for projectile-type spells (supporting shotgun spread)
             boolean launched = SpellProjectileFactory.tryLaunchProjectile(
                     serverLevel,
@@ -124,7 +146,7 @@ public class GunplayEvents {
                     event.getOrigin(),
                     event.getDirection(),
                     spell,
-                    level,
+                    effectiveLevel,
                     projectileCount,
                     spread
             );
@@ -152,15 +174,29 @@ public class GunplayEvents {
             return;
         }
 
+        // Check Shotgun Single-Trigger per volley for impact spells (e.g. Sunbeam)
+        java.util.UUID shotId = profile.components().getOrDefault(SHOT_ID);
+        if (shotId != null && !SpellBulletEffectHandler.checkAndMarkVolley(shotId)) {
+            // Already triggered by an earlier pellet from this shotgun volley! Skip to avoid duplicate Sunbeams.
+            event.setCanceled(true);
+            bullet.discard();
+            return;
+        }
+
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {
             LivingEntity shooter = bullet.getOwner() instanceof LivingEntity living ? living : null;
+            int projectileCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
+            int effectiveLevel = (projectileCount > 1) ? Math.max(1, entry.spellLevel() - 3) : entry.spellLevel();
+            io.redspace.ironsspellbooks.api.spells.SpellData spellData =
+                    new io.redspace.ironsspellbooks.api.spells.SpellData(entry.getSpell(), effectiveLevel);
+
             SpellBulletEffectHandler.onSpellBulletHit(
                     bullet.level(),
                     event.getRayTraceResult(),
                     bullet,
                     shooter,
-                    entry.toSpellData()
+                    spellData
             );
 
             // Cancel the normal bullet impact so zero firearm physical damage is applied

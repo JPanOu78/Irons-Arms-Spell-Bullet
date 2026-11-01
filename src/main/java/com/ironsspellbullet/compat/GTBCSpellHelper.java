@@ -56,11 +56,35 @@ public class GTBCSpellHelper {
                 path.contains("chunker");
     }
 
+    public static boolean tryLaunchSolarBeam(ServerLevel level, LivingEntity shooter, Vec3 origin, Vec3 direction, float damage) {
+        if (!isGeomancyLoaded()) return false;
+        try {
+            float yaw = (float) ((shooter.getYHeadRot() + 90.0f) * Math.PI / 180.0);
+            float pitch = (float) (-shooter.getXRot() * Math.PI / 180.0);
+            com.gametechbc.gtbcs_geomancy_plus.entity.extended.projectiles.ExtendedSolarBeamEntity beam =
+                    new com.gametechbc.gtbcs_geomancy_plus.entity.extended.projectiles.ExtendedSolarBeamEntity(
+                            com.gametechbc.gtbcs_geomancy_plus.init.GGEntities.EXTENDED_SOLAR_BEAM.get(),
+                            level,
+                            shooter,
+                            origin.x, origin.y, origin.z,
+                            yaw, pitch,
+                            55
+                    );
+            beam.setHasPlayer(true);
+            beam.setDamageMob(damage);
+            level.addFreshEntity(beam);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     public static boolean tryLaunchGTBCProjectile(ServerLevel level, LivingEntity shooter, Vec3 origin, Vec3 direction, String path, float damage, double speed) {
         if (path.contains("psychic_bolt") && isGTBCSpellsLoaded()) {
             PsychicBoltProjectile bolt = new PsychicBoltProjectile(level, shooter);
             bolt.setPos(origin.x, origin.y, origin.z);
             bolt.setDamage(damage);
+            bolt.setNoGravity(true);
             bolt.shoot(direction);
             bolt.setDeltaMovement(direction.normalize().scale(speed));
             level.addFreshEntity(bolt);
@@ -72,6 +96,7 @@ public class GTBCSpellHelper {
                 DripstoneBoltEntity bolt = new DripstoneBoltEntity(level, shooter);
                 bolt.setPos(origin.x, origin.y, origin.z);
                 bolt.setDamage(damage);
+                bolt.setNoGravity(true);
                 bolt.shoot(direction);
                 bolt.setDeltaMovement(direction.normalize().scale(speed));
                 level.addFreshEntity(bolt);
@@ -80,6 +105,7 @@ public class GTBCSpellHelper {
                 ErodingBoulderEntity boulder = new ErodingBoulderEntity(level, shooter);
                 boulder.setPos(origin.x, origin.y, origin.z);
                 boulder.setDamage(damage);
+                boulder.setNoGravity(true);
                 boulder.shoot(direction);
                 boulder.setDeltaMovement(direction.normalize().scale(speed));
                 level.addFreshEntity(boulder);
@@ -88,6 +114,7 @@ public class GTBCSpellHelper {
                 ChunkerEntity chunker = new ChunkerEntity(level, shooter);
                 chunker.setPos(origin.x, origin.y, origin.z);
                 chunker.setDamage(damage);
+                chunker.setNoGravity(true);
                 chunker.setDeltaMovement(direction.normalize().scale(speed));
                 level.addFreshEntity(chunker);
                 return true;
