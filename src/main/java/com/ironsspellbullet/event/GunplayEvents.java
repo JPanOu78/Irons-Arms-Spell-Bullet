@@ -16,9 +16,7 @@ import io.redspace.irons_artifice.entity.Bullet;
 import io.redspace.irons_artifice.gun.ShotProfile;
 import io.redspace.irons_artifice.item.GunItem;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
-import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -71,10 +69,12 @@ public class GunplayEvents {
             profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
 
             // Completely clear standard firearm bullet rendering & tracer lines (no bullet rendered)
-            if (profile.components().has(ShotComponents.PARTICLE_TRAIL)) {
-                ParticleStack stack = profile.components().getOrDefault(ShotComponents.PARTICLE_TRAIL);
-                stack.getParticles().clear();
-                stack.getAccents().clear();
+            profile.components().set(ShotComponents.PARTICLE_TRAIL, new ParticleStack());
+
+            // Check if this spell is a projectile-type spell.
+            // If so, mark it immediately so Bullet entity creation will be suppressed!
+            if (SpellProjectileFactory.isProjectileSpell(entry.getSpell())) {
+                profile.components().set(LAUNCHED_AS_PROJECTILE, true);
             }
         }
     }
