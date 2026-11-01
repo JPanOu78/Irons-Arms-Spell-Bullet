@@ -5,24 +5,26 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tracks which spell bullet is currently selected by the player via the quick select wheel.
+ * Tracks which bullet type (normal or specific spell) is currently selected by the player.
  */
 public class ActiveSpellBulletManager {
-    private static final Map<UUID, String> SELECTED_SPELLS = new ConcurrentHashMap<>();
+    public static final String NORMAL_BULLET = "normal";
 
-    public static void setSelectedSpell(UUID playerUUID, String spellId) {
-        if (spellId == null || spellId.isEmpty()) {
-            SELECTED_SPELLS.remove(playerUUID);
+    private static final Map<UUID, String> SELECTED_BULLETS = new ConcurrentHashMap<>();
+
+    public static void setSelectedSpell(UUID playerUUID, String bulletId) {
+        if (bulletId == null || bulletId.isEmpty()) {
+            SELECTED_BULLETS.put(playerUUID, NORMAL_BULLET);
         } else {
-            SELECTED_SPELLS.put(playerUUID, spellId);
+            SELECTED_BULLETS.put(playerUUID, bulletId);
         }
     }
 
     public static String getSelectedSpell(UUID playerUUID) {
-        return SELECTED_SPELLS.get(playerUUID);
+        return SELECTED_BULLETS.getOrDefault(playerUUID, NORMAL_BULLET);
     }
 
     public static void clear(UUID playerUUID) {
-        SELECTED_SPELLS.remove(playerUUID);
+        SELECTED_BULLETS.remove(playerUUID);
     }
 }

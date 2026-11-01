@@ -8,5 +8,8 @@
   "tooltip.irons_spell_bullet.chamber_header": "✦ Loaded Arcane Chamber:",
   "key.irons_spell_bullet.select_bullet": "Select Arcane Bullet (Alt + Scroll)",
   "key.category.irons_spell_bullet": "Iron's Arms Spell Bullet",
-  "gui.irons_spell_bullet.select_title": "✦ Arcane Bullet Quick Select"
+  "gui.irons_spell_bullet.select_title": "✦ Arcane Bullet Quick Select",
+  "gui.irons_spell_bullet.normal_bullet": "Normal Bullet",
+  "gui.irons_spell_bullet.available_count": "In Inventory: %s",
+  "gui.irons_spell_bullet.reload_hint": "[R] Reload to Chamber"
 }

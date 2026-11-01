@@ -34,3 +34,4 @@ public record ServerboundSelectSpellBulletPacket(String spellId) implements Cust
         });
     }
 }
+

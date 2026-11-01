@@ -77,3 +77,4 @@ public class SpellProjectileFactory {
         return false;
     }
 }
+

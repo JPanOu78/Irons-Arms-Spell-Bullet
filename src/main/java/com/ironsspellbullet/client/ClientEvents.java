@@ -2,6 +2,9 @@ package com.ironsspellbullet.client;
 
 import com.ironsspellbullet.IronsArmsSpellBulletMod;
 import com.ironsspellbullet.client.gui.SpellBulletWheelOverlay;
+import com.ironsspellbullet.client.gui.SpellWheelOption;
+import com.ironsspellbullet.event.ActiveSpellBulletManager;
+import com.ironsspellbullet.event.ReloadHelper;
 import com.ironsspellbullet.item.ModItems;
 import com.ironsspellbullet.item.SpellBulletItem;
 import com.ironsspellbullet.network.ServerboundSelectSpellBulletPacket;
@@ -90,11 +93,24 @@ public class ClientEvents {
             boolean isAltActive = KEY_SELECT_SPELL_BULLET.isDown() || Screen.hasAltDown();
             if (!isAltActive) return;
 
-            List<SpellData> available = getAvailableSpellBullets(mc.player);
+            List<SpellWheelOption> available = getAvailableOptions(mc.player);
             if (available.isEmpty()) return;
 
             // Cancel hotbar scroll so player doesn't change active hotbar slot
             event.setCanceled(true);
+
+            // Synchronize selection index with active selected spell
+            String currentId = ActiveSpellBulletManager.getSelectedSpell(mc.player.getUUID());
+            int foundIdx = -1;
+            for (int i = 0; i < available.size(); i++) {
+                if (available.get(i).id().equals(currentId)) {
+                    foundIdx = i;
+                    break;
+                }
+            }
+            if (foundIdx != -1) {
+                currentSelectionIndex = foundIdx;
+            }
 
             double scrollDelta = event.getScrollDeltaY();
             if (scrollDelta > 0) {
@@ -104,29 +120,55 @@ public class ClientEvents {
             }
 
             currentSelectionIndex = Math.floorMod(currentSelectionIndex, available.size());
-            SpellData selected = available.get(currentSelectionIndex);
+            SpellWheelOption selected = available.get(currentSelectionIndex);
 
             // Play light feedback click sound
             mc.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, 1.8f);
 
-            // Notify server of selected spell bullet
-            PacketDistributor.sendToServer(new ServerboundSelectSpellBulletPacket(selected.getSpell().getSpellResource().toString()));
+            // Update client state and notify server
+            ActiveSpellBulletManager.setSelectedSpell(mc.player.getUUID(), selected.id());
+            PacketDistributor.sendToServer(new ServerboundSelectSpellBulletPacket(selected.id()));
 
             // Activate and display HUD overlay
             SpellBulletWheelOverlay.show(70, available, currentSelectionIndex);
         }
 
-        public static List<SpellData> getAvailableSpellBullets(Player player) {
-            Map<String, SpellData> distinct = new LinkedHashMap<>();
+        public static List<SpellWheelOption> getAvailableOptions(Player player) {
+            List<SpellWheelOption> options = new ArrayList<>();
+            if (player == null) return options;
+
+            // Count standard bullets (including Ammo Box / containers)
+            int normalBullets = ReloadHelper.countSpecificBullets(player, ActiveSpellBulletManager.NORMAL_BULLET);
+
+            // Find all distinct spell bullets in player inventory
+            Map<String, SpellData> distinctSpells = new LinkedHashMap<>();
+            Map<String, Integer> spellCounts = new LinkedHashMap<>();
+
             for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                 ItemStack stack = player.getInventory().getItem(i);
                 if (stack.getItem() instanceof SpellBulletItem && SpellBulletItem.hasSpell(stack)) {
                     SpellData data = SpellBulletItem.getSpellData(stack);
-                    String id = data.getSpell().getSpellResource().toString() + "_" + data.getLevel();
-                    distinct.putIfAbsent(id, data);
+                    if (data != null && data.getSpell() != null) {
+                        String id = data.getSpell().getSpellResource().toString();
+                        distinctSpells.putIfAbsent(id, data);
+                        spellCounts.put(id, spellCounts.getOrDefault(id, 0) + stack.getCount());
+                    }
                 }
             }
-            return new ArrayList<>(distinct.values());
+
+            // Always add Normal Bullet as option 0 if player has normal bullets or any spell bullets
+            if (normalBullets > 0 || !distinctSpells.isEmpty()) {
+                options.add(SpellWheelOption.ofNormal(normalBullets));
+            }
+
+            // Add each distinct spell bullet
+            for (Map.Entry<String, SpellData> entry : distinctSpells.entrySet()) {
+                String id = entry.getKey();
+                int count = spellCounts.getOrDefault(id, 0);
+                options.add(SpellWheelOption.ofSpell(entry.getValue(), count, player));
+            }
+
+            return options;
         }
     }
 }
