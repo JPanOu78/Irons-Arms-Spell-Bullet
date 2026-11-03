@@ -7,6 +7,9 @@ import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
 import io.redspace.ironsspellbooks.api.util.Utils;
 import io.redspace.ironsspellbooks.damage.SpellDamageSource;
+import io.redspace.ironsspellbooks.network.particles.BloodSiphonParticlesPacket;
+import io.redspace.ironsspellbooks.util.ParticleHelper;
+import net.neoforged.neoforge.network.PacketDistributor;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedVex;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedZombie;
 import io.redspace.ironsspellbooks.entity.spells.BlizzardAoe;
@@ -294,6 +297,25 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleBloodImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
+        if (path.contains("ray_of_siphoning") || path.contains("siphon")) {
+            if (hitEntity instanceof LivingEntity target) {
+                SpellDamageSource source = SpellDamageSource.source(bullet, shooter, spell).setLifestealPercent(1.0f);
+                target.hurt(source, damage);
+                float healAmount = Math.max(4.0f, damage * 0.5f);
+                if (shooter != null) {
+                    shooter.heal(healAmount);
+                    try {
+                        Vec3 targetCenter = target.position().add(0, target.getBbHeight() * 0.5, 0);
+                        Vec3 shooterCenter = shooter.position().add(0, shooter.getBbHeight() * 0.5, 0);
+                        PacketDistributor.sendToPlayersTrackingEntityAndSelf(shooter, new BloodSiphonParticlesPacket(targetCenter, shooterCenter));
+                    } catch (Throwable ignored) {}
+                }
+            }
+            level.sendParticles(ParticleHelper.SIPHON, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.3, 0.3, 0.3, 0.05);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.5f, 1.3f);
+            return;
+        }
+
         if (path.contains("devour") && hitEntity instanceof LivingEntity target) {
             DevourJaw jaw = new DevourJaw(level, shooter, target);
             jaw.setDamage(damage * 1.2f);

@@ -32,21 +32,8 @@ public class InstantBeamHandler {
     public static boolean isBeamSpell(String path) {
         if (path == null) return false;
         String p = path.toLowerCase();
-        return p.contains("solar_beam") ||
-                p.contains("ray_of_siphoning") ||
-                p.contains("siphon") ||
-                p.contains("ray_of_frost") ||
-                p.contains("soulfire_ray") ||
-                p.contains("dragon_breath") ||
-                p.contains("fire_breath") ||
-                p.contains("poison_breath") ||
-                p.contains("cone_of_cold") ||
-                p.contains("void_beam") ||
-                p.contains("atomic_laser") ||
-                p.contains("laser") ||
-                p.contains("beacon_ray") ||
-                p.contains("ashen_breath") ||
-                p.contains("frost_breath");
+        // Solar Beam is the singular massive laser beam fired directly from muzzle with 0 charge delay
+        return p.contains("solar_beam");
     }
 
     public static boolean fireBeam(
