@@ -89,11 +89,6 @@ public class SpellBulletEffectHandler {
         float spellPower = spell.getSpellPower(spellLevel, shooter);
         float damage = Math.max(8.0f, spellPower * 2.8f);
 
-        // Check GTBC spells first
-        if (com.ironsspellbullet.compat.GTBCSpellHelper.handleGTBCImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage)) {
-            return;
-        }
-
         // Execute school-specific behavior
         if (school.equals(SchoolRegistry.FIRE.get())) {
             handleFireImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);

@@ -1,6 +1,5 @@
 package com.ironsspellbullet.spell;
 
-import com.ironsspellbullet.compat.GTBCSpellHelper;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.entity.spells.AbstractMagicProjectile;
 import io.redspace.ironsspellbooks.entity.spells.ArrowVolleyEntity;
@@ -35,7 +34,7 @@ public class SpellProjectileFactory {
     public static final double BULLET_SPEED = 3.8;
 
     /**
-     * Checks if the given spell is a projectile-type spell (Iron's Spells + GTBC Spells).
+     * Checks if the given spell is a projectile-type spell in Iron's Spells.
      */
     public static boolean isProjectileSpell(AbstractSpell spell) {
         if (spell == null) return false;
@@ -68,12 +67,7 @@ public class SpellProjectileFactory {
                 path.contains("poison_arrow") ||
                 path.contains("guiding_bolt") ||
                 path.contains("creeper") ||
-                path.contains("arrow_volley") ||
-                // GTBC spells
-                path.contains("psychic_bolt") ||
-                path.contains("dripstone_bolt") ||
-                path.contains("eroding_boulder") ||
-                path.contains("chunker");
+                path.contains("arrow_volley");
     }
 
     /**
@@ -86,11 +80,7 @@ public class SpellProjectileFactory {
                 path.contains("black_hole") ||
                 path.contains("comet") ||
                 path.contains("starfall") ||
-                path.contains("chunker") ||
-                path.contains("meteor") ||
-                path.contains("arrow_volley") ||
-                path.contains("earthshatter") ||
-                path.contains("solar_beam");
+                path.contains("arrow_volley");
     }
 
     /**
@@ -156,13 +146,7 @@ public class SpellProjectileFactory {
             return InstantBeamHandler.fireBeam(level, shooter, origin, direction, spell, spellLevel, damage, totalPellets > 1 ? 0.05f : 0.0f);
         }
 
-        // 2. GTBC Projectiles
-        if (GTBCSpellHelper.isGTBCProjectile(path)) {
-            boolean gtbcLaunched = GTBCSpellHelper.tryLaunchGTBCProjectile(level, shooter, origin, direction, path, damage, BULLET_SPEED);
-            if (gtbcLaunched) return true;
-        }
-
-        // 3. Iron's Spells Magic Projectiles
+        // 2. Iron's Spells Magic Projectiles
         AbstractMagicProjectile projectile = null;
 
         if (path.contains("fireball")) {
