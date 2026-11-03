@@ -1,6 +1,5 @@
 package com.ironsspellbullet.spell;
 
-import com.ironsspellbullet.compat.GeomancyCompat;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.util.Utils;
 import io.redspace.ironsspellbooks.damage.SpellDamageSource;
@@ -28,13 +27,13 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import java.util.List;
 
 /**
- * Handles continuous / channeling and instant beam spells from Iron's Spells and addons (GTBC Geomancy Plus).
+ * Handles continuous / channeling and instant beam spells from core Iron's Spells.
  * Fires directly and immediately from the gun muzzle with authentic 3D entities and effects!
  */
 public class InstantBeamHandler {
 
     /**
-     * Checks if a spell is a beam or ray spell.
+     * Checks if a spell is a beam or ray spell in core Iron's Spells.
      */
     public static boolean isBeamSpell(String path) {
         if (path == null) return false;
@@ -42,8 +41,6 @@ public class InstantBeamHandler {
         return p.contains("ray_of_frost") ||
                 p.contains("ray_of_siphoning") ||
                 p.contains("siphon") ||
-                p.contains("solar_beam") ||
-                p.contains("solar") ||
                 p.contains("electrocute") ||
                 p.contains("cone_of_cold") ||
                 p.contains("fire_breath") ||
@@ -67,19 +64,12 @@ public class InstantBeamHandler {
         if (spell == null) return false;
         String path = spell.getSpellResource().getPath().toLowerCase();
 
-        // 1. Solar Beam (GTBC Geomancy Plus)
-        if (path.contains("solar")) {
-            if (GeomancyCompat.tryLaunchSolarBeam(level, shooter, origin, direction, baseDamage)) {
-                return true;
-            }
-        }
-
-        // 2. Ray of Frost (Iron's Spells: RayOfFrostVisualEntity)
+        // 1. Ray of Frost (Iron's Spells: RayOfFrostVisualEntity)
         if (path.contains("ray_of_frost")) {
             return fireRayOfFrost(level, shooter, origin, direction, spell, spellLevel, baseDamage);
         }
 
-        // 3. Ray of Siphoning (Iron's Spells: BloodSiphon stream + instant max lifesteal)
+        // 2. Ray of Siphoning (Iron's Spells: BloodSiphon stream + instant max lifesteal)
         if (path.contains("ray_of_siphoning") || path.contains("siphon")) {
             return fireRayOfSiphoning(level, shooter, origin, direction, spell, spellLevel, baseDamage);
         }

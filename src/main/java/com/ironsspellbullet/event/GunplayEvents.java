@@ -83,7 +83,7 @@ public class GunplayEvents {
 
             // Check if this spell is a projectile-type or beam-type spell.
             if (SpellProjectileFactory.isProjectileSpell(entry.getSpell())) {
-                // For projectile and beam spells (Fireball, Magma bomb, Firebolt, Icicle, Solar Beam, Ray of Frost, etc.):
+                // For projectile and beam spells (Fireball, Magma bomb, Firebolt, Icicle, Ray of Frost, Ray of Siphoning, etc.):
                 // Launched directly as authentic magic entities/beams from the muzzle.
                 // Suppress firearm bullet entity and clear firearm tracer line so only magic entity is visible!
                 profile.components().set(LAUNCHED_AS_PROJECTILE, true);
