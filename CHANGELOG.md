@@ -53,3 +53,4 @@ This mod bridges the magical mastery of **Iron's Spells 'n Spellbooks** with the
 * **Iron's Arms 'n Artifice** `1.1.0`+
 * **GeckoLib**
 * **Curios API**
+
