@@ -4,6 +4,16 @@
 
 ---
 
+## 🏛️ ปรัชญาและหัวใจหลักในการพัฒนา (Core Design Philosophy)
+
+> [!IMPORTANT]
+> **Authentic Spell Rendering (เรนเดอร์เวทมนตร์จริง 100% จาก Iron's Spells):**
+> * **ทุกการยิงจะต้องออกมาเป็นเวทมนตร์จริง ๆ จาก Iron's Spells เสมอ ห้ามจำลองเป็นแบบอื่นเด็ดขาด**
+> * หากเวทมนตร์ใดมี Entity หรือ Visual Effect เฉพาะของตนเอง (เช่น `MagicFireball`, `FireBomb (Magma Bomb)`, `Icicle`, `Firebolt`, `Magic Missile`, `SunbeamEntity`, `BlackHole`, `PsychicBolt`, `Chunker` ฯลฯ) จะต้องถูกเรียกใช้งานและเรนเดอร์โดยตรงจากคลาสตัวจริงของ Iron's Spells และม็อดต้นฉบับ 100%
+> * คงไว้ซึ่งโมเดล 3D ดั้งเดิม, ระบบ Shader, อนุภาคแสงเฉพาะตัว, และเสียงเอฟเฟกต์ต้นฉบับอย่างสมบูรณ์แบบ ให้ผู้เล่นได้รับประสบการณ์เวทมนตร์อันทรงพลังผ่านปากกระบอกปืนอย่างแท้จริง
+
+---
+
 ## 🌟 จุดเด่นและระบบหลัก (Key Features)
 
 1. **ระบบคราฟต์กระสุนลงอาคม (Inscribed Spell Bullet Recipe):**
