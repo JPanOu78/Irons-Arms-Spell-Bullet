@@ -1,5 +1,6 @@
 package com.ironsspellbullet.spell;
 
+import com.ironsspellbullet.event.ActiveSpellEntityManager;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.entity.spells.AbstractMagicProjectile;
 import io.redspace.ironsspellbooks.entity.spells.ArrowVolleyEntity;
@@ -66,8 +67,7 @@ public class SpellProjectileFactory {
                 path.contains("acid_orb") ||
                 path.contains("poison_arrow") ||
                 path.contains("guiding_bolt") ||
-                path.contains("creeper") ||
-                path.contains("arrow_volley");
+                path.contains("creeper");
     }
 
     /**
@@ -79,8 +79,7 @@ public class SpellProjectileFactory {
                 path.contains("magma") ||
                 path.contains("black_hole") ||
                 path.contains("comet") ||
-                path.contains("starfall") ||
-                path.contains("arrow_volley");
+                path.contains("starfall");
     }
 
     /**
@@ -164,6 +163,10 @@ public class SpellProjectileFactory {
             projectile = new FireArrowProjectile(level, shooter);
         } else if (path.contains("blaze_storm")) {
             projectile = new SmallMagicFireball(level, shooter);
+            if (totalPellets <= 1 && shooter instanceof net.minecraft.server.level.ServerPlayer) {
+                // Single bullet fires a rapid 5-fireball Blaze Storm burst! (1 instant + 4 queued)
+                ActiveSpellEntityManager.queueBlazeStormBurst(level, shooter, origin, direction, damage, spellLevel, 4);
+            }
         } else if (path.contains("icicle")) {
             projectile = new IcicleProjectile(level, shooter);
         } else if (path.contains("snowball")) {
@@ -196,12 +199,6 @@ public class SpellProjectileFactory {
             projectile = new GuidingBoltProjectile(level, shooter);
         } else if (path.contains("creeper")) {
             projectile = new CreeperHeadProjectile(level, shooter);
-        } else if (path.contains("arrow_volley")) {
-            ArrowVolleyEntity volley = new ArrowVolleyEntity(EntityRegistry.ARROW_VOLLEY_ENTITY.get(), level);
-            volley.setOwner(shooter);
-            volley.setRows(Math.max(1, 2 + spellLevel / 2));
-            volley.setArrowsPerRow(Math.max(2, 4 + spellLevel));
-            projectile = volley;
         }
 
         if (projectile != null) {

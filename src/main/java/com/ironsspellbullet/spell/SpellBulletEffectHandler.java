@@ -12,6 +12,7 @@ import io.redspace.ironsspellbooks.entity.mobs.SummonedHorse;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedPolarBear;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedVex;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedZombie;
+import io.redspace.ironsspellbooks.entity.spells.ArrowVolleyEntity;
 import io.redspace.ironsspellbooks.entity.spells.BlizzardAoe;
 import io.redspace.ironsspellbooks.entity.spells.EarthquakeAoe;
 import io.redspace.ironsspellbooks.entity.spells.ExtendedEvokerFang;
@@ -41,6 +42,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -49,6 +51,7 @@ import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -481,6 +484,38 @@ public class SpellBulletEffectHandler {
         if (path.contains("invisibility") && hitEntity instanceof LivingEntity ally) {
             ally.addEffect(new MobEffectInstance(MobEffectRegistry.TRUE_INVISIBILITY, 300 + spellLevel * 60, 0));
             level.sendParticles(ParticleTypes.SQUID_INK, ally.getX(), ally.getY() + 1, ally.getZ(), 20, 0.4, 0.4, 0.4, 0.05);
+            return;
+        }
+
+        // 7. Tactical Airstrike: Arrow Volley summoned at hitPos
+        if (path.contains("arrow_volley")) {
+            Vec3 targetPos = hitPos;
+            Vec3 shooterPos = (shooter != null) ? shooter.position() : targetPos.subtract(0, 0, 10);
+            Vec3 dir = new Vec3(targetPos.x - shooterPos.x, 0, targetPos.z - shooterPos.z).normalize();
+            Vec3 backwardOffset = dir.scale(-4.0);
+            Vec3 spawnPos = Utils.moveToRelativeGroundLevel(level, targetPos.add(0, 2, 0), 4).add(backwardOffset).add(0, 6, 0);
+
+            BlockHitResult blockHit = Utils.raycastForBlock(level, targetPos, spawnPos, ClipContext.Fluid.NONE);
+            Vec3 spawnPoint = blockHit.getLocation().subtract(targetPos).scale(0.9).add(targetPos);
+
+            double dx = targetPos.x - spawnPoint.x;
+            double dz = targetPos.z - spawnPoint.z;
+            float yRot = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
+            float xRot = (float) (-(Mth.atan2(spawnPoint.y - targetPos.y, Math.sqrt(dx * dx + dz * dz)) * (180.0 / Math.PI))) + 25.0f;
+
+            ArrowVolleyEntity volley = new ArrowVolleyEntity(EntityRegistry.ARROW_VOLLEY_ENTITY.get(), level);
+            volley.moveTo(spawnPoint);
+            volley.setYRot(yRot);
+            volley.setXRot(xRot);
+            float power = spell.getSpellPower(spellLevel, shooter);
+            volley.setDamage(Math.max(4.0f, damage * 0.4f + power * 0.25f));
+            volley.setArrowsPerRow(5 + spellLevel / 2);
+            volley.setRows(4 + spellLevel);
+            volley.setOwner(shooter);
+            level.addFreshEntity(volley);
+
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.ARROW_VOLLEY_PREPARE.get(), SoundSource.PLAYERS, 2.0f, 1.0f);
+            level.sendParticles(ParticleTypes.ENCHANT, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.5, 0.5, 0.5, 0.1);
             return;
         }
 
