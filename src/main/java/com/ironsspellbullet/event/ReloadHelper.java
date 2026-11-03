@@ -213,4 +213,45 @@ public class ReloadHelper {
         }
         return false;
     }
+
+    /**
+     * Instantly sets the firearm's chamber and magazine in Creative mode to the chosen bullet type.
+     */
+    public static void setCreativeChamber(Player player, ItemStack gunStack, String selectedBulletId) {
+        if (player == null || gunStack == null || !(gunStack.getItem() instanceof GunItem gunItem)) return;
+
+        int capacity = gunItem.magazineCapacity();
+        if (ActiveSpellBulletManager.NORMAL_BULLET.equals(selectedBulletId) || selectedBulletId == null || selectedBulletId.isEmpty()) {
+            gunStack.remove(ModDataComponents.LOADED_SPELLS.get());
+            GunItem.setMagazine(gunStack, new MagazineContents(capacity));
+        } else {
+            AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(net.minecraft.resources.ResourceLocation.parse(selectedBulletId));
+            if (spell != null && !com.ironsspellbullet.spell.SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                int level = spell.getMaxLevel();
+                ItemStack offhand = player.getOffhandItem();
+                if (offhand.getItem() instanceof SpellBulletItem && matchesSpell(offhand, selectedBulletId)) {
+                    SpellData sd = SpellBulletItem.getSpellData(offhand);
+                    if (sd != null) level = sd.getLevel();
+                } else {
+                    for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                        ItemStack invStack = player.getInventory().getItem(i);
+                        if (invStack.getItem() instanceof SpellBulletItem && matchesSpell(invStack, selectedBulletId)) {
+                            SpellData sd = SpellBulletItem.getSpellData(invStack);
+                            if (sd != null) {
+                                level = sd.getLevel();
+                                break;
+                            }
+                        }
+                    }
+                }
+                SpellChamberData.SpellSlotEntry entry = new SpellChamberData.SpellSlotEntry(selectedBulletId, level);
+                List<SpellChamberData.SpellSlotEntry> entries = new ArrayList<>();
+                for (int i = 0; i < capacity; i++) {
+                    entries.add(entry);
+                }
+                gunStack.set(ModDataComponents.LOADED_SPELLS.get(), new SpellChamberData(entries));
+                GunItem.setMagazine(gunStack, new MagazineContents(capacity));
+            }
+        }
+    }
 }

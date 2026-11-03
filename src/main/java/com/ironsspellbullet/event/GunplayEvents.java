@@ -69,6 +69,50 @@ public class GunplayEvents {
         ItemStack gunStack = profile.itemStack();
         if (gunStack == null || gunStack.isEmpty()) return;
 
+        LivingEntity shooter = event.getEntity();
+
+        // Creative mode instant bullet selection support:
+        if (shooter instanceof Player player && player.hasInfiniteMaterials()) {
+            String active = ActiveSpellBulletManager.getSelectedSpell(player.getUUID());
+            if (active != null && !active.isEmpty() && !ActiveSpellBulletManager.NORMAL_BULLET.equals(active)) {
+                AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(ResourceLocation.parse(active));
+                if (spell != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                    int spellLevel = spell.getMaxLevel();
+                    ItemStack offhand = player.getOffhandItem();
+                    if (offhand.getItem() instanceof com.ironsspellbullet.item.SpellBulletItem && ReloadHelper.matchesSpell(offhand, active)) {
+                        io.redspace.ironsspellbooks.api.spells.SpellData sd = com.ironsspellbullet.item.SpellBulletItem.getSpellData(offhand);
+                        if (sd != null) spellLevel = sd.getLevel();
+                    } else {
+                        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                            ItemStack invStack = player.getInventory().getItem(i);
+                            if (invStack.getItem() instanceof com.ironsspellbullet.item.SpellBulletItem && ReloadHelper.matchesSpell(invStack, active)) {
+                                io.redspace.ironsspellbooks.api.spells.SpellData sd = com.ironsspellbullet.item.SpellBulletItem.getSpellData(invStack);
+                                if (sd != null) {
+                                    spellLevel = sd.getLevel();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    SpellChamberData.SpellSlotEntry creativeEntry = new SpellChamberData.SpellSlotEntry(active, spellLevel);
+                    profile.components().set(SHOT_SPELL, creativeEntry);
+                    profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
+
+                    if (SpellProjectileFactory.isProjectileSpell(spell)) {
+                        profile.components().set(LAUNCHED_AS_PROJECTILE, true);
+                        profile.components().set(ShotComponents.PARTICLE_TRAIL, new ParticleStack());
+                    } else {
+                        profile.components().set(SHOT_ID, java.util.UUID.randomUUID());
+                    }
+                    return;
+                }
+            } else if (ActiveSpellBulletManager.NORMAL_BULLET.equals(active)) {
+                profile.components().remove(SHOT_SPELL);
+                return;
+            }
+        }
+
         SpellChamberData chamber = gunStack.get(ModDataComponents.LOADED_SPELLS.get());
         if (chamber == null || chamber.isEmpty()) return;
 
@@ -123,13 +167,17 @@ public class GunplayEvents {
         ShotProfile profile = event.getShotProfile();
         if (profile == null) return;
 
-        // Pop the round from chamber now that the gun is officially firing on the server
+        // Pop the round from chamber now that the gun is officially firing on the server (unless in Creative mode)
         ItemStack gunStack = profile.itemStack();
         if (gunStack != null && !gunStack.isEmpty()) {
-            SpellChamberData chamber = gunStack.get(ModDataComponents.LOADED_SPELLS.get());
-            if (chamber != null && !chamber.isEmpty()) {
-                SpellChamberData.PopResult pop = chamber.popNext();
-                gunStack.set(ModDataComponents.LOADED_SPELLS.get(), pop.remaining());
+            if (shooter instanceof Player player && player.hasInfiniteMaterials()) {
+                // Creative Mode: keep infinite ammo in chamber
+            } else {
+                SpellChamberData chamber = gunStack.get(ModDataComponents.LOADED_SPELLS.get());
+                if (chamber != null && !chamber.isEmpty()) {
+                    SpellChamberData.PopResult pop = chamber.popNext();
+                    gunStack.set(ModDataComponents.LOADED_SPELLS.get(), pop.remaining());
+                }
             }
         }
 

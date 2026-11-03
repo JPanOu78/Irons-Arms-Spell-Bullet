@@ -172,8 +172,10 @@ public class ClientEvents {
             List<SpellWheelOption> options = new ArrayList<>();
             if (player == null) return options;
 
+            boolean isCreative = player.hasInfiniteMaterials();
+
             // Count standard bullets (including Ammo Box / containers)
-            int normalBullets = ReloadHelper.countSpecificBullets(player, ActiveSpellBulletManager.NORMAL_BULLET);
+            int normalBullets = isCreative ? 999 : ReloadHelper.countSpecificBullets(player, ActiveSpellBulletManager.NORMAL_BULLET);
 
             // Find all distinct spell bullets in player inventory
             Map<String, SpellData> distinctSpells = new LinkedHashMap<>();
@@ -186,20 +188,31 @@ public class ClientEvents {
                     if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
                         String id = data.getSpell().getSpellResource().toString();
                         distinctSpells.putIfAbsent(id, data);
-                        spellCounts.put(id, spellCounts.getOrDefault(id, 0) + stack.getCount());
+                        spellCounts.put(id, spellCounts.getOrDefault(id, 0) + (isCreative ? 999 : stack.getCount()));
                     }
                 }
             }
 
-            // Always add Normal Bullet as option 0 if player has normal bullets or any spell bullets
-            if (normalBullets > 0 || !distinctSpells.isEmpty()) {
+            // Also check offhand item
+            ItemStack offhand = player.getOffhandItem();
+            if (offhand.getItem() instanceof SpellBulletItem && SpellBulletItem.hasSpell(offhand)) {
+                SpellData data = SpellBulletItem.getSpellData(offhand);
+                if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
+                    String id = data.getSpell().getSpellResource().toString();
+                    distinctSpells.putIfAbsent(id, data);
+                    spellCounts.put(id, spellCounts.getOrDefault(id, 0) + (isCreative ? 999 : offhand.getCount()));
+                }
+            }
+
+            // Always add Normal Bullet as option 0 if player has normal bullets, any spell bullets, or is in Creative mode
+            if (isCreative || normalBullets > 0 || !distinctSpells.isEmpty()) {
                 options.add(SpellWheelOption.ofNormal(normalBullets));
             }
 
             // Add each distinct spell bullet
             for (Map.Entry<String, SpellData> entry : distinctSpells.entrySet()) {
                 String id = entry.getKey();
-                int count = spellCounts.getOrDefault(id, 0);
+                int count = spellCounts.getOrDefault(id, isCreative ? 999 : 0);
                 options.add(SpellWheelOption.ofSpell(entry.getValue(), count, player));
             }
 

@@ -1,5 +1,6 @@
 package com.ironsspellbullet.spell;
 
+import com.ironsspellbullet.event.ActiveSpellEntityManager;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.util.RaycastBuilder;
 import io.redspace.ironsspellbooks.api.util.Utils;
@@ -168,6 +169,7 @@ public class InstantBeamHandler {
         // Spawn authentic 3D visual entity at eye position (as RayOfFrostSpell expects)
         RayOfFrostVisualEntity frostBeam = new RayOfFrostVisualEntity(level, eyePos, hitPos, shooter);
         level.addFreshEntity(frostBeam);
+        ActiveSpellEntityManager.registerEntity(shooter, frostBeam, 15);
 
         // High-density crystalline frost laser beam connecting muzzle to target
         double distance = origin.distanceTo(hitPos);
@@ -307,6 +309,7 @@ public class InstantBeamHandler {
         // 3D EldritchBlastVisualEntity from Iron's Spells
         EldritchBlastVisualEntity blast = new EldritchBlastVisualEntity(level, eyePos, hitPos, shooter);
         level.addFreshEntity(blast);
+        ActiveSpellEntityManager.registerEntity(shooter, blast, 15);
 
         // Dense void tendrils laser line
         double distance = origin.distanceTo(hitPos);
@@ -397,6 +400,7 @@ public class InstantBeamHandler {
         cone.setPos(origin);
         cone.setDamage(coldDamage);
         level.addFreshEntity(cone);
+        ActiveSpellEntityManager.registerEntity(shooter, cone, 8);
 
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.8f, 1.2f);
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.4f, 1.5f);
@@ -435,6 +439,7 @@ public class InstantBeamHandler {
         breath.setPos(origin);
         breath.setDamage(fireDamage);
         level.addFreshEntity(breath);
+        ActiveSpellEntityManager.registerEntity(shooter, breath, 8);
 
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.6f, 1.1f);
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.4f, 1.3f);
@@ -469,6 +474,7 @@ public class InstantBeamHandler {
         breath.setPos(origin);
         breath.setDamage(dragonDamage);
         level.addFreshEntity(breath);
+        ActiveSpellEntityManager.registerEntity(shooter, breath, 8);
 
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 1.5f, 1.4f);
 
@@ -502,6 +508,7 @@ public class InstantBeamHandler {
         projectile.setPos(origin);
         projectile.setDamage(shockDamage);
         level.addFreshEntity(projectile);
+        ActiveSpellEntityManager.registerEntity(shooter, projectile, 8);
 
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.6f, 1.8f);
 
@@ -556,6 +563,7 @@ public class InstantBeamHandler {
         GustCollider gust = new GustCollider(level, shooter);
         gust.setPos(origin);
         level.addFreshEntity(gust);
+        ActiveSpellEntityManager.registerEntity(shooter, gust, 10);
         level.playSound(null, origin.x, origin.y, origin.z, SoundRegistry.GUST_CAST.get(), SoundSource.PLAYERS, 1.5f, 1.2f);
 
         sweepConeArea(level, shooter, origin, direction, 16.0, 30.0, target -> {

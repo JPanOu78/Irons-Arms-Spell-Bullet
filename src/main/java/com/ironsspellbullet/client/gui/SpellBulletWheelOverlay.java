@@ -120,7 +120,8 @@ public class SpellBulletWheelOverlay implements LayeredDraw.Layer {
             graphics.drawCenteredString(font, title, (int) centerX, (int) centerY - 14, 0xFFFFFF);
 
             // Available Count
-            Component countInfo = Component.translatable("gui.irons_spell_bullet.available_count", active.count())
+            String countDisplay = active.count() >= 999 ? "∞" : String.valueOf(active.count());
+            Component countInfo = Component.translatable("gui.irons_spell_bullet.available_count", countDisplay)
                     .withStyle(ChatFormatting.GRAY);
             graphics.drawCenteredString(font, countInfo, (int) centerX, (int) centerY - 3, 0xAAAAAA);
 

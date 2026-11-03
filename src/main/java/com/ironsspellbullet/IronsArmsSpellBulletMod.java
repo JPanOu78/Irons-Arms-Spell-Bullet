@@ -37,6 +37,7 @@ public class IronsArmsSpellBulletMod {
 
         // Register game event handlers
         NeoForge.EVENT_BUS.register(new GunplayEvents());
+        NeoForge.EVENT_BUS.register(new com.ironsspellbullet.event.ActiveSpellEntityManager());
 
         LOGGER.info("Iron's Arms Spell Bullet initialized successfully!");
     }

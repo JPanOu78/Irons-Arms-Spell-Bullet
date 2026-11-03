@@ -127,7 +127,7 @@ public class SpellBulletActionbarOverlay implements LayeredDraw.Layer {
 
             // Render count badge in bottom-right corner of slot
             if (option.count() > 0) {
-                String countStr = String.valueOf(option.count());
+                String countStr = option.count() >= 999 ? "∞" : String.valueOf(option.count());
                 int countWidth = font.width(countStr);
                 graphics.pose().pushPose();
                 graphics.pose().translate(0, 0, 200);
@@ -157,7 +157,8 @@ public class SpellBulletActionbarOverlay implements LayeredDraw.Layer {
                 }
             }
 
-            title.append(Component.literal(" • " + active.count() + " Available").withStyle(ChatFormatting.GRAY));
+            String countDisplay = active.count() >= 999 ? "∞" : String.valueOf(active.count());
+            title.append(Component.literal(" • " + countDisplay + " Available").withStyle(ChatFormatting.GRAY));
 
             int textWidth = font.width(title);
             int textX = (guiWidth - textWidth) / 2;
