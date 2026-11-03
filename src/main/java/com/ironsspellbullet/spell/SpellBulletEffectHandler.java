@@ -221,11 +221,13 @@ public class SpellBulletEffectHandler {
             aoe.setPos(hitPos);
             level.addFreshEntity(aoe);
         } else if (path.contains("sunbeam")) {
+            Vec3 strikePos = (hitEntity != null) ? hitEntity.position() : Utils.moveToRelativeGroundLevel(level, hitPos, 3, 18);
             SunbeamEntity sunbeam = new SunbeamEntity(level);
             sunbeam.setOwner(shooter);
+            sunbeam.moveTo(strikePos);
             sunbeam.setDamage(damage);
-            sunbeam.setPos(hitPos);
             level.addFreshEntity(sunbeam);
+            level.playSound(null, sunbeam.blockPosition(), io.redspace.ironsspellbooks.registries.SoundRegistry.SUNBEAM_WINDUP.get(), SoundSource.NEUTRAL, 3.5f, 1.0f);
         } else if (path.contains("wisp")) {
             WispEntity wisp = new WispEntity(level, shooter, damage * 0.4f);
             wisp.setPos(hitPos.x, hitPos.y + 1.0, hitPos.z);
