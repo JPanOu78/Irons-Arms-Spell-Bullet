@@ -15,17 +15,24 @@ import io.redspace.irons_artifice.data.Value;
 import io.redspace.irons_artifice.entity.Bullet;
 import io.redspace.irons_artifice.gun.ShotProfile;
 import io.redspace.irons_artifice.item.GunItem;
+import io.redspace.ironsspellbooks.api.events.SpellOnCastEvent;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
+import io.redspace.ironsspellbooks.api.spells.CastSource;
+import io.redspace.ironsspellbooks.network.casting.OnClientCastPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -137,6 +144,31 @@ public class GunplayEvents {
             if (projectileCount > 1 && SpellProjectileFactory.isHeavySpell(spell.getSpellResource().getPath().toLowerCase())) {
                 projectileCount = 1;
                 spread = 0.0f;
+            }
+
+            // Post official SpellOnCastEvent so Iron's Spells and modded ecosystem recognize shooting as casting a spell!
+            if (shooter instanceof Player player) {
+                SpellOnCastEvent castEvent = new SpellOnCastEvent(
+                        player,
+                        spell.getSpellId(),
+                        effectiveLevel,
+                        0, // Mana cost = 0 (free mana for firearms)
+                        spell.getSchoolType(),
+                        CastSource.SCROLL // SCROLL: does not consume mana, does not trigger spellbook cooldowns
+                );
+                NeoForge.EVENT_BUS.post(castEvent);
+                effectiveLevel = castEvent.getSpellLevel();
+
+                if (player instanceof ServerPlayer serverPlayer) {
+                    try {
+                        PacketDistributor.sendToPlayer(serverPlayer, new OnClientCastPacket(
+                                spell.getSpellId(),
+                                effectiveLevel,
+                                CastSource.SCROLL,
+                                null
+                        ));
+                    } catch (Throwable ignored) {}
+                }
             }
 
             // Try launching directly from gun muzzle at bullet speed for projectile-type spells (supporting shotgun spread)
