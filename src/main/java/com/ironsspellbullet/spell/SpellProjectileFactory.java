@@ -119,7 +119,8 @@ public class SpellProjectileFactory {
                 ).normalize();
             }
 
-            boolean launched = launchSingle(level, shooter, origin, pelletDir, spell, path, spellLevel, damagePerPellet, count);
+            boolean isFirstPellet = (i == 0);
+            boolean launched = launchSingle(level, shooter, origin, pelletDir, spell, path, spellLevel, damagePerPellet, count, isFirstPellet);
             if (launched) {
                 anyLaunched = true;
             }
@@ -137,7 +138,8 @@ public class SpellProjectileFactory {
             String path,
             int spellLevel,
             float damage,
-            int totalPellets
+            int totalPellets,
+            boolean isFirstPellet
     ) {
         // 1. Instant Beam / Ray Spells (Fired instantly from muzzle without any charge-up or windup)
         if (InstantBeamHandler.isBeamSpell(path)) {
@@ -162,14 +164,14 @@ public class SpellProjectileFactory {
             projectile = new FireArrowProjectile(level, shooter);
         } else if (path.contains("blaze_storm")) {
             projectile = new SmallMagicFireball(level, shooter);
-            if (totalPellets <= 1 && shooter instanceof net.minecraft.server.level.ServerPlayer) {
-                // Single bullet fires a rapid 5-fireball Blaze Storm burst! (1 instant + 4 queued)
+            if (isFirstPellet && shooter instanceof net.minecraft.server.level.ServerPlayer) {
+                // Fires a rapid 5-fireball Blaze Storm burst! (1 instant + 4 queued)
                 ActiveSpellEntityManager.queueBlazeStormBurst(level, shooter, origin, direction, damage, spellLevel, 4);
             }
         } else if (path.contains("flaming_barrage")) {
             projectile = new SmallMagicFireball(level, shooter);
-            if (totalPellets <= 1 && shooter instanceof net.minecraft.server.level.ServerPlayer) {
-                // Single bullet fires a rapid 5-fireball Flaming Barrage burst!
+            if (isFirstPellet && shooter instanceof net.minecraft.server.level.ServerPlayer) {
+                // Fires a rapid 5-fireball Flaming Barrage burst! (1 instant + 4 queued)
                 ActiveSpellEntityManager.queueFlamingBarrageBurst(level, shooter, origin, direction, damage, spellLevel, 4);
             }
         } else if (path.contains("icicle")) {
@@ -194,8 +196,8 @@ public class SpellProjectileFactory {
             BloodNeedle needle = new BloodNeedle(level, shooter);
             needle.setZRot(0.0f);
             projectile = needle;
-            if (totalPellets <= 1 && shooter instanceof net.minecraft.server.level.ServerPlayer) {
-                // Single bullet fires a rapid 5-needle Blood Needles burst! (1 instant + 4 queued)
+            if (isFirstPellet && shooter instanceof net.minecraft.server.level.ServerPlayer) {
+                // Fires a rapid 5-needle Blood Needles burst! (1 instant + 4 queued)
                 ActiveSpellEntityManager.queueBloodNeedlesBurst(level, shooter, origin, direction, damage, spellLevel, 4);
             }
         } else if (path.contains("blood_slash") || path.contains("shadow_slash")) {

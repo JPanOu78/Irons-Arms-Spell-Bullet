@@ -7,6 +7,7 @@ import io.redspace.ironsspellbooks.entity.spells.comet.Comet;
 import io.redspace.ironsspellbooks.entity.spells.fireball.SmallMagicFireball;
 import io.redspace.ironsspellbooks.registries.SoundRegistry;
 import io.redspace.ironsspellbooks.util.ParticleHelper;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -265,11 +266,16 @@ public class ActiveSpellEntityManager {
 
     @SubscribeEvent
     public void onEquipmentChange(LivingEquipmentChangeEvent event) {
-        if (event.getEntity() instanceof Player player) {
+        if (event.getEntity() instanceof ServerPlayer player) {
             EquipmentSlot slot = event.getSlot();
             if (slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND) {
-                // If the player unequipped or swapped weapons, stop active spell effects immediately!
-                stopPlayerEffects(player);
+                ItemStack from = event.getFrom();
+                ItemStack to = event.getTo();
+                // Only cancel active effects if the player actually switched to a DIFFERENT ITEM or unequipped it!
+                // Do NOT cancel if it's the exact same item (e.g. ammo/durability NBT updated from shooting)
+                if (from.getItem() != to.getItem()) {
+                    stopPlayerEffects(player);
+                }
             }
         }
     }
@@ -348,134 +354,137 @@ public class ActiveSpellEntityManager {
 
     @SubscribeEvent
     public void onPlayerTick(EntityTickEvent.Post event) {
-        if (event.getEntity() instanceof Player player) {
-            UUID uuid = player.getUUID();
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
-            ItemStack mainHand = player.getMainHandItem();
-            ItemStack offHand = player.getOffhandItem();
-            boolean holdingGun = (mainHand.getItem() instanceof GunItem) || (offHand.getItem() instanceof GunItem);
-            if (!holdingGun || !player.isAlive()) {
-                stopPlayerEffects(player);
-                return;
-            }
+        UUID uuid = player.getUUID();
 
-            // 1. Tick tracked continuous/cone entities
-            CopyOnWriteArrayList<TrackedEntity> list = ACTIVE_ENTITIES.get(uuid);
-            if (list != null && !list.isEmpty()) {
-                for (Iterator<TrackedEntity> it = list.iterator(); it.hasNext(); ) {
-                    TrackedEntity te = it.next();
-                    te.remainingTicks--;
-                    if (te.remainingTicks <= 0 || !te.entity.isAlive()) {
-                        if (te.entity.isAlive()) {
-                            te.entity.discard();
-                        }
-                        list.remove(te);
+        ItemStack mainHand = player.getMainHandItem();
+        ItemStack offHand = player.getOffhandItem();
+        boolean holdingGun = (mainHand.getItem() instanceof GunItem) || (offHand.getItem() instanceof GunItem);
+        if (!holdingGun || !player.isAlive()) {
+            stopPlayerEffects(player);
+            return;
+        }
+
+        // 1. Tick tracked continuous/cone entities
+        CopyOnWriteArrayList<TrackedEntity> list = ACTIVE_ENTITIES.get(uuid);
+        if (list != null && !list.isEmpty()) {
+            for (Iterator<TrackedEntity> it = list.iterator(); it.hasNext(); ) {
+                TrackedEntity te = it.next();
+                te.remainingTicks--;
+                if (te.remainingTicks <= 0 || !te.entity.isAlive()) {
+                    if (te.entity.isAlive()) {
+                        te.entity.discard();
                     }
-                }
-                if (list.isEmpty()) {
-                    ACTIVE_ENTITIES.remove(uuid);
+                    list.remove(te);
                 }
             }
+            if (list.isEmpty()) {
+                ACTIVE_ENTITIES.remove(uuid);
+            }
+        }
 
-            // 2. Tick rapid-fire Blaze Storm bursts
-            CopyOnWriteArrayList<BlazeStormBurst> blazeBursts = ACTIVE_BLAZE_BURSTS.get(uuid);
-            if (blazeBursts != null && !blazeBursts.isEmpty()) {
-                for (Iterator<BlazeStormBurst> it = blazeBursts.iterator(); it.hasNext(); ) {
-                    BlazeStormBurst burst = it.next();
-                    burst.ticksUntilNext--;
-                    if (burst.ticksUntilNext <= 0) {
-                        Vec3 aimDir = player.getLookAngle();
-                        Vec3 spawnPos = player.getEyePosition().add(aimDir.scale(0.5));
+        // 2. Tick rapid-fire Blaze Storm bursts
+        CopyOnWriteArrayList<BlazeStormBurst> blazeBursts = ACTIVE_BLAZE_BURSTS.get(uuid);
+        if (blazeBursts != null && !blazeBursts.isEmpty()) {
+            for (Iterator<BlazeStormBurst> it = blazeBursts.iterator(); it.hasNext(); ) {
+                BlazeStormBurst burst = it.next();
+                burst.ticksUntilNext--;
+                if (burst.ticksUntilNext <= 0) {
+                    Vec3 aimDir = player.getLookAngle();
+                    Vec3 spawnPos = player.getEyePosition().add(aimDir.scale(0.85));
 
-                        SmallMagicFireball fireball = new SmallMagicFireball(burst.level, player);
-                        fireball.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
-                        fireball.setDamage(burst.damage);
-                        fireball.setNoGravity(true);
-                        fireball.shoot(aimDir);
-                        fireball.setDeltaMovement(aimDir.normalize().scale(3.2));
-                        burst.level.addFreshEntity(fireball);
+                    SmallMagicFireball fireball = new SmallMagicFireball(burst.level, player);
+                    fireball.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+                    fireball.setDamage(burst.damage);
+                    fireball.setNoGravity(true);
+                    fireball.shoot(aimDir);
+                    fireball.setDeltaMovement(aimDir.normalize().scale(3.2));
+                    burst.level.addFreshEntity(fireball);
 
-                        burst.level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.8f, 1.2f);
+                    burst.level.sendParticles(ParticleTypes.FLAME, spawnPos.x, spawnPos.y, spawnPos.z, 6, 0.1, 0.1, 0.1, 0.05);
+                    burst.level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.8f, 1.2f);
 
-                        burst.remainingFireballs--;
-                        burst.ticksUntilNext = 2; // interval of 2 ticks between shots
+                    burst.remainingFireballs--;
+                    burst.ticksUntilNext = 2; // interval of 2 ticks between shots
 
-                        if (burst.remainingFireballs <= 0) {
-                            blazeBursts.remove(burst);
-                        }
+                    if (burst.remainingFireballs <= 0) {
+                        blazeBursts.remove(burst);
                     }
-                }
-                if (blazeBursts.isEmpty()) {
-                    ACTIVE_BLAZE_BURSTS.remove(uuid);
                 }
             }
+            if (blazeBursts.isEmpty()) {
+                ACTIVE_BLAZE_BURSTS.remove(uuid);
+            }
+        }
 
-            // 3. Tick rapid-fire Blood Needles bursts (5-needle spiral)
-            CopyOnWriteArrayList<BloodNeedlesBurst> bloodBursts = ACTIVE_BLOOD_BURSTS.get(uuid);
-            if (bloodBursts != null && !bloodBursts.isEmpty()) {
-                for (Iterator<BloodNeedlesBurst> it = bloodBursts.iterator(); it.hasNext(); ) {
-                    BloodNeedlesBurst burst = it.next();
-                    burst.ticksUntilNext--;
-                    if (burst.ticksUntilNext <= 0) {
-                        Vec3 aimDir = player.getLookAngle();
-                        Vec3 spawnPos = player.getEyePosition().add(aimDir.scale(0.5));
+        // 3. Tick rapid-fire Blood Needles bursts (5-needle spiral)
+        CopyOnWriteArrayList<BloodNeedlesBurst> bloodBursts = ACTIVE_BLOOD_BURSTS.get(uuid);
+        if (bloodBursts != null && !bloodBursts.isEmpty()) {
+            for (Iterator<BloodNeedlesBurst> it = bloodBursts.iterator(); it.hasNext(); ) {
+                BloodNeedlesBurst burst = it.next();
+                burst.ticksUntilNext--;
+                if (burst.ticksUntilNext <= 0) {
+                    Vec3 aimDir = player.getLookAngle();
+                    Vec3 spawnPos = player.getEyePosition().add(aimDir.scale(0.85));
 
-                        BloodNeedle needle = new BloodNeedle(burst.level, player);
-                        needle.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
-                        needle.setDamage(burst.damage);
-                        needle.setNoGravity(true);
-                        needle.setZRot(burst.currentZRot);
-                        needle.shoot(aimDir);
-                        needle.setDeltaMovement(aimDir.normalize().scale(3.4));
-                        burst.level.addFreshEntity(needle);
+                    BloodNeedle needle = new BloodNeedle(burst.level, player);
+                    needle.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+                    needle.setDamage(burst.damage);
+                    needle.setNoGravity(true);
+                    needle.setZRot(burst.currentZRot);
+                    needle.shoot(aimDir);
+                    needle.setDeltaMovement(aimDir.normalize().scale(3.4));
+                    burst.level.addFreshEntity(needle);
 
-                        burst.level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundRegistry.BLOOD_NEEDLE_IMPACT.get(), SoundSource.PLAYERS, 1.4f, 1.3f + (burst.remainingNeedles * 0.08f));
+                    burst.level.sendParticles(ParticleTypes.CRIMSON_SPORE, spawnPos.x, spawnPos.y, spawnPos.z, 8, 0.1, 0.1, 0.1, 0.05);
+                    burst.level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundRegistry.BLOOD_NEEDLE_IMPACT.get(), SoundSource.PLAYERS, 1.4f, 1.3f + (burst.remainingNeedles * 0.08f));
 
-                        burst.currentZRot += 72.0f; // Spiral rotation
-                        burst.remainingNeedles--;
-                        burst.ticksUntilNext = 2; // interval of 2 ticks between shots
+                    burst.currentZRot += 72.0f; // Spiral rotation
+                    burst.remainingNeedles--;
+                    burst.ticksUntilNext = 2; // interval of 2 ticks between shots
 
-                        if (burst.remainingNeedles <= 0) {
-                            bloodBursts.remove(burst);
-                        }
+                    if (burst.remainingNeedles <= 0) {
+                        bloodBursts.remove(burst);
                     }
-                }
-                if (bloodBursts.isEmpty()) {
-                    ACTIVE_BLOOD_BURSTS.remove(uuid);
                 }
             }
+            if (bloodBursts.isEmpty()) {
+                ACTIVE_BLOOD_BURSTS.remove(uuid);
+            }
+        }
 
-            // 4. Tick rapid-fire Flaming Barrage bursts
-            CopyOnWriteArrayList<FlamingBarrageBurst> flamingBursts = ACTIVE_FLAMING_BURSTS.get(uuid);
-            if (flamingBursts != null && !flamingBursts.isEmpty()) {
-                for (Iterator<FlamingBarrageBurst> it = flamingBursts.iterator(); it.hasNext(); ) {
-                    FlamingBarrageBurst burst = it.next();
-                    burst.ticksUntilNext--;
-                    if (burst.ticksUntilNext <= 0) {
-                        Vec3 aimDir = player.getLookAngle();
-                        Vec3 spawnPos = player.getEyePosition().add(aimDir.scale(0.5));
+        // 4. Tick rapid-fire Flaming Barrage bursts
+        CopyOnWriteArrayList<FlamingBarrageBurst> flamingBursts = ACTIVE_FLAMING_BURSTS.get(uuid);
+        if (flamingBursts != null && !flamingBursts.isEmpty()) {
+            for (Iterator<FlamingBarrageBurst> it = flamingBursts.iterator(); it.hasNext(); ) {
+                FlamingBarrageBurst burst = it.next();
+                burst.ticksUntilNext--;
+                if (burst.ticksUntilNext <= 0) {
+                    Vec3 aimDir = player.getLookAngle();
+                    Vec3 spawnPos = player.getEyePosition().add(aimDir.scale(0.85));
 
-                        SmallMagicFireball fireball = new SmallMagicFireball(burst.level, player);
-                        fireball.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
-                        fireball.setDamage(burst.damage);
-                        fireball.setNoGravity(true);
-                        fireball.shoot(aimDir);
-                        fireball.setDeltaMovement(aimDir.normalize().scale(3.2));
-                        burst.level.addFreshEntity(fireball);
+                    SmallMagicFireball fireball = new SmallMagicFireball(burst.level, player);
+                    fireball.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+                    fireball.setDamage(burst.damage);
+                    fireball.setNoGravity(true);
+                    fireball.shoot(aimDir);
+                    fireball.setDeltaMovement(aimDir.normalize().scale(3.2));
+                    burst.level.addFreshEntity(fireball);
 
-                        burst.level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.8f, 1.4f);
+                    burst.level.sendParticles(ParticleTypes.FLAME, spawnPos.x, spawnPos.y, spawnPos.z, 6, 0.1, 0.1, 0.1, 0.05);
+                    burst.level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.8f, 1.4f);
 
-                        burst.remainingFireballs--;
-                        burst.ticksUntilNext = 2;
+                    burst.remainingFireballs--;
+                    burst.ticksUntilNext = 2;
 
-                        if (burst.remainingFireballs <= 0) {
-                            flamingBursts.remove(burst);
-                        }
+                    if (burst.remainingFireballs <= 0) {
+                        flamingBursts.remove(burst);
                     }
                 }
-                if (flamingBursts.isEmpty()) {
-                    ACTIVE_FLAMING_BURSTS.remove(uuid);
-                }
+            }
+            if (flamingBursts.isEmpty()) {
+                ACTIVE_FLAMING_BURSTS.remove(uuid);
             }
         }
     }

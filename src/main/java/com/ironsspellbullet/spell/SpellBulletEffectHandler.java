@@ -227,11 +227,46 @@ public class SpellBulletEffectHandler {
             blizzard.setDamage(damage * 0.4f);
             blizzard.setPos(hitPos);
             level.addFreshEntity(blizzard);
-        } else if (path.contains("ice_spikes")) {
-            IceSpikeEntity spike = new IceSpikeEntity(level, shooter);
-            spike.setPos(hitPos);
-            spike.setDamage(damage);
-            level.addFreshEntity(spike);
+        } else if (path.contains("ice_spikes") || path.contains("ice_spike")) {
+            Vec3 startPos = (shooter != null)
+                    ? Utils.moveToRelativeGroundLevel(level, shooter.position().add(0, 0.1, 0), 2, 6)
+                    : hitPos.subtract(0, 0, 10);
+            Vec3 targetPos = hitPos;
+            Vec3 diff = targetPos.subtract(startPos);
+            double totalDist = diff.horizontalDistance();
+            Vec3 horizDir = (totalDist > 0.001) ? new Vec3(diff.x, 0, diff.z).normalize() : new Vec3(1, 0, 0);
+
+            float stepDistance = 1.35f;
+            int spikeCount = Math.min(32, Math.max(3, (int) Math.round(totalDist / stepDistance)));
+            float actualStep = (float) (totalDist / spikeCount);
+            float shooterYRot = (shooter != null) ? shooter.getYRot() : 0.0f;
+
+            for (int i = 0; i < spikeCount; i++) {
+                double currentDist = (i + 1) * actualStep;
+                Vec3 samplePos = startPos.add(horizDir.scale(currentDist));
+                Vec3 groundPos = Utils.moveToRelativeGroundLevel(level, samplePos, 2, 4);
+
+                IceSpikeEntity spike = new IceSpikeEntity(level, shooter);
+                spike.moveTo(groundPos);
+                // Cascading rolling eruption: 1 tick delay per spike creates a racing frost wave!
+                spike.setWaitTime(i);
+
+                boolean isFinalSpike = (i == spikeCount - 1);
+                float spikeSize = isFinalSpike ? 2.2f : (0.9f + ((float) i / spikeCount) * 0.9f);
+                spike.setSpikeSize(spikeSize);
+                spike.setDamage(isFinalSpike ? damage : damage * 0.65f);
+                spike.setYRot(shooterYRot - 45.0f + level.random.nextIntBetweenInclusive(-20, 20));
+                spike.setXRot(level.random.nextIntBetweenInclusive(-15, 15));
+                if (i % 2 != 0) {
+                    spike.setSilent(true);
+                }
+                level.addFreshEntity(spike);
+
+                MagicManager.spawnParticles(level, ParticleHelper.SNOWFLAKE, groundPos.x, groundPos.y + 0.3, groundPos.z, 6, 0.2, 0.2, 0.2, 0.05, false);
+            }
+
+            level.playSound(null, startPos.x, startPos.y, startPos.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.5f, 1.2f);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 2.0f, 0.9f);
         }
 
         if (hitEntity instanceof LivingEntity target) {
