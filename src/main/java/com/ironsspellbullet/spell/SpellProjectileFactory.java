@@ -40,6 +40,9 @@ public class SpellProjectileFactory {
     public static boolean isProjectileSpell(AbstractSpell spell) {
         if (spell == null) return false;
         String path = spell.getSpellResource().getPath().toLowerCase();
+        if (InstantBeamHandler.isBeamSpell(path)) {
+            return true;
+        }
         return path.contains("fireball") ||
                 path.contains("magma") ||
                 path.contains("firebolt") ||
@@ -70,12 +73,7 @@ public class SpellProjectileFactory {
                 path.contains("psychic_bolt") ||
                 path.contains("dripstone_bolt") ||
                 path.contains("eroding_boulder") ||
-                path.contains("chunker") ||
-                // Beams and Rays
-                path.contains("solar_beam") ||
-                path.contains("ray_of_frost") ||
-                path.contains("ray_of_siphoning") ||
-                path.contains("soulfire_ray");
+                path.contains("chunker");
     }
 
     /**
@@ -153,22 +151,15 @@ public class SpellProjectileFactory {
             float damage,
             int totalPellets
     ) {
-        // 1. Check Solar Beam & GTBC Projectiles first
-        if (path.contains("solar_beam")) {
-            boolean solarLaunched = GTBCSpellHelper.tryLaunchSolarBeam(level, shooter, origin, direction, damage);
-            if (solarLaunched) return true;
+        // 1. Instant Beam / Ray Spells (Fired instantly from muzzle without any charge-up or windup)
+        if (InstantBeamHandler.isBeamSpell(path)) {
+            return InstantBeamHandler.fireBeam(level, shooter, origin, direction, spell, spellLevel, damage, totalPellets > 1 ? 0.05f : 0.0f);
         }
+
+        // 2. GTBC Projectiles
         if (GTBCSpellHelper.isGTBCProjectile(path)) {
             boolean gtbcLaunched = GTBCSpellHelper.tryLaunchGTBCProjectile(level, shooter, origin, direction, path, damage, BULLET_SPEED);
             if (gtbcLaunched) return true;
-        }
-
-        // 2. Check Instant Ray / Beam Spells (Ray of Frost, etc.)
-        if (path.contains("ray_of_frost") || path.contains("ray_of_siphoning") || path.contains("soulfire_ray")) {
-            try {
-                spell.onCast(level, spellLevel, shooter, io.redspace.ironsspellbooks.api.spells.CastSource.SWORD, io.redspace.ironsspellbooks.api.magic.MagicData.getPlayerMagicData(shooter));
-                return true;
-            } catch (Throwable ignored) {}
         }
 
         // 3. Iron's Spells Magic Projectiles
