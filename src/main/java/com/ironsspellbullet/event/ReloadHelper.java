@@ -206,6 +206,9 @@ public class ReloadHelper {
     public static boolean matchesSpell(ItemStack stack, String spellId) {
         SpellData data = SpellBulletItem.getSpellData(stack);
         if (data != null && data.getSpell() != null) {
+            if (com.ironsspellbullet.spell.SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
+                return false;
+            }
             return data.getSpell().getSpellResource().toString().equals(spellId);
         }
         return false;

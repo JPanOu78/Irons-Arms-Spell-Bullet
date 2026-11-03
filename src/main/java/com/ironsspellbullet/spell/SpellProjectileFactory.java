@@ -37,7 +37,7 @@ public class SpellProjectileFactory {
      * Checks if the given spell is a projectile-type spell in Iron's Spells.
      */
     public static boolean isProjectileSpell(AbstractSpell spell) {
-        if (spell == null) return false;
+        if (spell == null || SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) return false;
         String path = spell.getSpellResource().getPath().toLowerCase();
         if (InstantBeamHandler.isBeamSpell(path)) {
             return true;
@@ -97,7 +97,7 @@ public class SpellProjectileFactory {
             int projectileCount,
             float spread
     ) {
-        if (spell == null) return false;
+        if (spell == null || SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) return false;
 
         String path = spell.getSpellResource().getPath().toLowerCase();
         float power = spell.getSpellPower(spellLevel, shooter);

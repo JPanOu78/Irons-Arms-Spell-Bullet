@@ -2,6 +2,7 @@ package com.ironsspellbullet.spell;
 
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.util.Utils;
+import io.redspace.ironsspellbooks.capabilities.magic.MagicManager;
 import io.redspace.ironsspellbooks.damage.SpellDamageSource;
 import io.redspace.ironsspellbooks.entity.spells.cone_of_cold.ConeOfColdProjectile;
 import io.redspace.ironsspellbooks.entity.spells.dragon_breath.DragonBreathProjectile;
@@ -152,6 +153,7 @@ public class InstantBeamHandler {
             int spellLevel,
             float damage
     ) {
+        Vec3 eyePos = (shooter != null) ? shooter.getEyePosition() : origin;
         Vec3 targetPos = origin.add(direction.scale(64.0));
         BlockHitResult blockHit = level.clip(new ClipContext(origin, targetPos, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, shooter));
         Vec3 hitPos = (blockHit.getType() != HitResult.Type.MISS) ? blockHit.getLocation() : targetPos;
@@ -173,11 +175,21 @@ public class InstantBeamHandler {
             hitPos = hitTarget.position().add(0, hitTarget.getBbHeight() * 0.5, 0);
         }
 
-        RayOfFrostVisualEntity frostBeam = new RayOfFrostVisualEntity(level, origin, hitPos, shooter);
+        // Spawn authentic 3D visual entity at eye position (as RayOfFrostSpell expects)
+        RayOfFrostVisualEntity frostBeam = new RayOfFrostVisualEntity(level, eyePos, hitPos, shooter);
         level.addFreshEntity(frostBeam);
 
+        // High-density crystalline frost laser beam connecting muzzle to target
+        double distance = origin.distanceTo(hitPos);
+        for (double d = 0.3; d < distance; d += 0.2) {
+            Vec3 pt = origin.add(direction.scale(d));
+            MagicManager.spawnParticles(level, ParticleHelper.ICY_FOG, pt.x, pt.y, pt.z, 2, 0.02, 0.02, 0.02, 0.0, true);
+            MagicManager.spawnParticles(level, ParticleHelper.SNOWFLAKE, pt.x, pt.y, pt.z, 1, 0.03, 0.03, 0.03, 0.0, true);
+        }
+
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.6f, 1.4f);
-        level.sendParticles(ParticleHelper.ICY_FOG, hitPos.x, hitPos.y, hitPos.z, 25, 0.4, 0.4, 0.4, 0.05);
+        MagicManager.spawnParticles(level, ParticleHelper.ICY_FOG, hitPos.x, hitPos.y, hitPos.z, 25, 0.4, 0.4, 0.4, 0.05, true);
+        MagicManager.spawnParticles(level, ParticleHelper.SNOWFLAKE, hitPos.x, hitPos.y, hitPos.z, 50, 0.4, 0.4, 0.4, 0.15, true);
 
         if (hitTarget != null) {
             int freezeTicks = 160 + spellLevel * 40;
@@ -226,13 +238,25 @@ public class InstantBeamHandler {
             PacketDistributor.sendToPlayersTrackingEntityAndSelf(shooter, new BloodSiphonParticlesPacket(hitPos, shooterCenter));
         }
 
-        double dist = origin.distanceTo(hitPos);
-        for (double d = 0.5; d <= dist; d += 0.35) {
-            Vec3 p = origin.add(direction.scale(d));
-            level.sendParticles(ParticleHelper.SIPHON, p.x, p.y, p.z, 3, 0.08, 0.08, 0.08, 0.01);
-            level.sendParticles(ParticleHelper.BLOOD, p.x, p.y, p.z, 3, 0.08, 0.08, 0.08, 0.02);
+        // Render continuous "เส้น เลเซอร์เลือด" (Solid Blood Laser Beam) using authentic Iron's Spells blood & siphon particles!
+        double distance = origin.distanceTo(hitPos);
+        for (double d = 0.25; d < distance; d += 0.18) {
+            Vec3 pt = origin.add(direction.scale(d));
+            MagicManager.spawnParticles(level, ParticleHelper.SIPHON, pt.x, pt.y, pt.z, 2, 0.02, 0.02, 0.02, 0.01, true);
+            MagicManager.spawnParticles(level, ParticleHelper.BLOOD, pt.x, pt.y, pt.z, 2, 0.02, 0.02, 0.02, 0.01, true);
         }
-        level.sendParticles(ParticleHelper.BLOOD_GROUND, hitPos.x, hitPos.y, hitPos.z, 15, 0.3, 0.3, 0.3, 0.05);
+
+        // Reverse siphon stream flowing back into the gun muzzle:
+        Vec3 returnDir = origin.subtract(hitPos).normalize();
+        for (double d = 0.5; d < distance; d += 0.5) {
+            Vec3 pt = hitPos.add(returnDir.scale(d));
+            MagicManager.spawnParticles(level, ParticleHelper.BLOOD, pt.x, pt.y, pt.z, 3, returnDir.x * 0.25, returnDir.y * 0.25, returnDir.z * 0.25, 0.12, true);
+        }
+
+        // Impact & Muzzle bursts
+        MagicManager.spawnParticles(level, ParticleHelper.BLOOD_GROUND, hitPos.x, hitPos.y, hitPos.z, 20, 0.3, 0.3, 0.3, 0.05, true);
+        MagicManager.spawnParticles(level, ParticleHelper.SIPHON, hitPos.x, hitPos.y, hitPos.z, 15, 0.2, 0.2, 0.2, 0.02, true);
+        MagicManager.spawnParticles(level, ParticleHelper.BLOOD, origin.x, origin.y, origin.z, 10, 0.1, 0.1, 0.1, 0.05, true);
 
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 1.4f);
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.EVOKER_CAST_SPELL, SoundSource.PLAYERS, 1.3f, 1.6f);
@@ -280,11 +304,20 @@ public class InstantBeamHandler {
         }
 
         // 3D EldritchBlastVisualEntity from Iron's Spells
-        EldritchBlastVisualEntity blast = new EldritchBlastVisualEntity(level, origin.subtract(0, 0.75, 0), hitPos, shooter);
+        Vec3 blastOrigin = (shooter != null) ? shooter.getEyePosition() : origin;
+        EldritchBlastVisualEntity blast = new EldritchBlastVisualEntity(level, blastOrigin, hitPos, shooter);
         level.addFreshEntity(blast);
 
+        // Dense void tendrils laser line
+        double distance = origin.distanceTo(hitPos);
+        for (double d = 0.4; d < distance; d += 0.25) {
+            Vec3 pt = origin.add(direction.scale(d));
+            MagicManager.spawnParticles(level, ParticleHelper.VOID_TENTACLE_FOG, pt.x, pt.y, pt.z, 1, 0.02, 0.02, 0.02, 0.0, true);
+            MagicManager.spawnParticles(level, ParticleTypes.SCULK_SOUL, pt.x, pt.y, pt.z, 1, 0.02, 0.02, 0.02, 0.02, true);
+        }
+
         level.playSound(null, origin.x, origin.y, origin.z, SoundRegistry.ELDRITCH_BLAST.get(), SoundSource.PLAYERS, 2.0f, 1.0f);
-        level.sendParticles(ParticleTypes.SCULK_SOUL, hitPos.x, hitPos.y, hitPos.z, 25, 0.4, 0.4, 0.4, 0.05);
+        MagicManager.spawnParticles(level, ParticleTypes.SCULK_SOUL, hitPos.x, hitPos.y, hitPos.z, 25, 0.4, 0.4, 0.4, 0.05, true);
 
         if (hitTarget != null) {
             hitTarget.hurt(SpellDamageSource.source(null, shooter, spell), damage * 1.3f);
@@ -310,7 +343,7 @@ public class InstantBeamHandler {
 
         for (double d = 1.0; d <= maxDist; d += 1.0) {
             Vec3 p = origin.add(direction.scale(d));
-            level.sendParticles(ParticleTypes.SONIC_BOOM, p.x, p.y, p.z, 1, 0, 0, 0, 0);
+            MagicManager.spawnParticles(level, ParticleTypes.SONIC_BOOM, p.x, p.y, p.z, 1, 0, 0, 0, 0, true);
         }
 
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 2.5f, 1.0f);

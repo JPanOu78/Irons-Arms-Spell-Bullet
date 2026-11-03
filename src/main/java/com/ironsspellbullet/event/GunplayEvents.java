@@ -75,6 +75,11 @@ public class GunplayEvents {
         // Peek next round from chamber without popping it
         SpellChamberData.SpellSlotEntry entry = chamber.peekNext();
         if (entry != null && entry.hasSpell()) {
+            // Safety: Disallow mobility or teleport spells
+            if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(entry.getSpell())) {
+                return;
+            }
+
             // Attach spell to shot profile
             profile.components().set(SHOT_SPELL, entry);
 
@@ -131,6 +136,9 @@ public class GunplayEvents {
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {
             AbstractSpell spell = entry.getSpell();
+            if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                return;
+            }
             int level = entry.spellLevel();
 
             int projectileCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));

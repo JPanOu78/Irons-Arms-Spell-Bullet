@@ -4,6 +4,7 @@
   "tooltip.irons_spell_bullet.school_info": "Magic School: %s",
   "tooltip.irons_spell_bullet.instant_fire": "⚡ Instant Arcane Release on Impact",
   "tooltip.irons_spell_bullet.zero_mana": "✦ 0 Mana Cost (Ammo-Powered)",
+  "tooltip.irons_spell_bullet.incompatible_mobility": "✖ Incompatible: Mobility & Teleport spells cannot be chambered into firearms",
   "tooltip.irons_spell_bullet.blank": "Blank Arcane Bullet",
   "tooltip.irons_spell_bullet.chamber_header": "✦ Loaded Arcane Chamber:",
   "key.irons_spell_bullet.select_bullet": "Select Arcane Bullet (Alt + Scroll)",

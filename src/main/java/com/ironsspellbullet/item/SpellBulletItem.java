@@ -45,6 +45,13 @@ public class SpellBulletItem extends Item {
         SpellData spellData = getSpellData(stack);
         if (spellData != null && !spellData.equals(SpellData.EMPTY) && spellData.getSpell() != null) {
             AbstractSpell spell = spellData.getSpell();
+
+            if (com.ironsspellbullet.spell.SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.incompatible_mobility")
+                        .withStyle(ChatFormatting.RED));
+                return;
+            }
+
             SpellRarity rarity = spellData.getRarity();
 
             // School & Rarity header

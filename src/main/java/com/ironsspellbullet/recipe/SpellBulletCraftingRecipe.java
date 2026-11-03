@@ -1,6 +1,7 @@
 package com.ironsspellbullet.recipe;
 
 import com.ironsspellbullet.item.ModItems;
+import com.ironsspellbullet.spell.SpellBulletEffectHandler;
 import io.redspace.irons_artifice.registry.ItemRegistry;
 import io.redspace.ironsspellbooks.api.spells.ISpellContainer;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
@@ -39,6 +40,16 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
             return false;
         }
 
+        SpellData spellData = container.getSpellAtIndex(0);
+        if (spellData == null || spellData.equals(SpellData.EMPTY) || spellData.getSpell() == null) {
+            return false;
+        }
+
+        // Strictly forbidden: Teleportation and mobility spells cannot be imbued onto spell bullets!
+        if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spellData.getSpell())) {
+            return false;
+        }
+
         // All 8 surrounding slots must be standard bullets
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
@@ -68,6 +79,11 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
 
         SpellData spellData = container.getSpellAtIndex(0);
         if (spellData == null || spellData.equals(SpellData.EMPTY) || spellData.getSpell() == null) {
+            return ItemStack.EMPTY;
+        }
+
+        // Strictly forbidden: Teleportation and mobility spells cannot be imbued onto spell bullets!
+        if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spellData.getSpell())) {
             return ItemStack.EMPTY;
         }
 

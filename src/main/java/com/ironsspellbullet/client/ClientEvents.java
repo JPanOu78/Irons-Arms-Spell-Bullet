@@ -8,6 +8,7 @@ import com.ironsspellbullet.event.ReloadHelper;
 import com.ironsspellbullet.item.ModItems;
 import com.ironsspellbullet.item.SpellBulletItem;
 import com.ironsspellbullet.network.ServerboundSelectSpellBulletPacket;
+import com.ironsspellbullet.spell.SpellBulletEffectHandler;
 import io.redspace.irons_artifice.item.GunItem;
 import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
@@ -182,7 +183,7 @@ public class ClientEvents {
                 ItemStack stack = player.getInventory().getItem(i);
                 if (stack.getItem() instanceof SpellBulletItem && SpellBulletItem.hasSpell(stack)) {
                     SpellData data = SpellBulletItem.getSpellData(stack);
-                    if (data != null && data.getSpell() != null) {
+                    if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
                         String id = data.getSpell().getSpellResource().toString();
                         distinctSpells.putIfAbsent(id, data);
                         spellCounts.put(id, spellCounts.getOrDefault(id, 0) + stack.getCount());

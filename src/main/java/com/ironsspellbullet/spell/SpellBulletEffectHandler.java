@@ -6,6 +6,7 @@ import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
 import io.redspace.ironsspellbooks.api.util.Utils;
+import io.redspace.ironsspellbooks.capabilities.magic.MagicManager;
 import io.redspace.ironsspellbooks.damage.SpellDamageSource;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedHorse;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedPolarBear;
@@ -82,13 +83,38 @@ public class SpellBulletEffectHandler {
         return TRIGGERED_VOLLEYS.add(shotId);
     }
 
+    /**
+     * Strictly checks whether a spell is a mobility, dash, or teleportation spell.
+     * These spells are completely forbidden from firearms and spell bullet crafting!
+     */
+    public static boolean isMobilityOrTeleportSpell(AbstractSpell spell) {
+        if (spell == null || spell.equals(SpellRegistry.none())) return false;
+        return isMobilityOrTeleportSpell(spell.getSpellResource().getPath());
+    }
+
+    public static boolean isMobilityOrTeleportSpell(String path) {
+        if (path == null) return false;
+        String p = path.toLowerCase();
+        return p.contains("teleport") ||
+                p.contains("frost_step") ||
+                p.contains("blood_step") ||
+                p.contains("burning_dash") ||
+                p.contains("dash") ||
+                p.contains("charge") ||
+                p.contains("ascension") ||
+                p.contains("recall") ||
+                p.contains("portal") ||
+                p.contains("shadow_slash") ||
+                p.contains("pocket_dimension");
+    }
+
     public static void onSpellBulletHit(Level level, HitResult hitResult, Entity bullet, LivingEntity shooter, SpellData spellData) {
         if (!(level instanceof ServerLevel serverLevel) || spellData == null || spellData.equals(SpellData.EMPTY)) {
             return;
         }
 
         AbstractSpell spell = spellData.getSpell();
-        if (spell == null || spell.equals(SpellRegistry.none())) {
+        if (spell == null || spell.equals(SpellRegistry.none()) || isMobilityOrTeleportSpell(spell)) {
             return;
         }
 
@@ -143,13 +169,6 @@ public class SpellBulletEffectHandler {
             return;
         }
 
-        // 2. Tactical Mobility: Burning Dash
-        if (path.contains("burning_dash") && shooter != null) {
-            shooter.teleportTo(hitPos.x, hitPos.y + 0.2, hitPos.z);
-            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 1.2f);
-            level.sendParticles(ParticleTypes.FLAME, hitPos.x, hitPos.y + 1, hitPos.z, 35, 0.5, 0.5, 0.5, 0.1);
-        }
-
         float radius = 1.8f + spellLevel * 0.4f;
         level.explode(bullet, hitPos.x, hitPos.y, hitPos.z, radius, Level.ExplosionInteraction.NONE);
 
@@ -174,14 +193,7 @@ public class SpellBulletEffectHandler {
     private static void handleIceImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage, HitResult hitResult) {
         int freezeTicks = 120 + spellLevel * 60;
 
-        // 1. Tactical Mobility: Frost Step (Blink to hit point with freezing shockwave)
-        if (path.contains("frost_step") && shooter != null) {
-            shooter.teleportTo(hitPos.x, hitPos.y + 0.2, hitPos.z);
-            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.FROST_STEP.get(), SoundSource.PLAYERS, 1.5f, 1.2f);
-            level.sendParticles(ParticleHelper.ICY_FOG, hitPos.x, hitPos.y + 1, hitPos.z, 35, 0.6, 0.5, 0.6, 0.05);
-        }
-
-        // 2. Minion Drop Pod: Summon Polar Bear
+        // 1. Minion Drop Pod: Summon Polar Bear
         if (path.contains("summon_polar_bear")) {
             SummonedPolarBear bear = new SummonedPolarBear(level, shooter);
             bear.moveTo(hitPos);
@@ -335,15 +347,7 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleEnderImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
-        // 1. Tactical Mobility: Teleport Bullet
-        if (path.contains("teleport") && shooter != null) {
-            shooter.teleportTo(hitPos.x, hitPos.y + 0.1, hitPos.z);
-            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.ABYSSAL_TELEPORT.get(), SoundSource.PLAYERS, 1.2f, 1.0f);
-            level.sendParticles(ParticleTypes.PORTAL, hitPos.x, hitPos.y + 1, hitPos.z, 40, 0.5, 1.0, 0.5, 0.2);
-            return;
-        }
-
-        // 2. Anti-Magic / Dispel Bullet: Counterspell
+        // 1. Anti-Magic / Dispel Bullet: Counterspell
         if (path.contains("counterspell") && hitEntity instanceof LivingEntity target) {
             target.removeAllEffects();
             level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.5f, 1.4f);
@@ -378,13 +382,6 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleBloodImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
-        // 1. Tactical Mobility: Blood Step (Blink + Blood Burst)
-        if (path.contains("blood_step") && shooter != null) {
-            shooter.teleportTo(hitPos.x, hitPos.y + 0.2, hitPos.z);
-            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.BLOOD_STEP.get(), SoundSource.PLAYERS, 1.5f, 1.2f);
-            level.sendParticles(ParticleHelper.BLOOD, hitPos.x, hitPos.y + 1, hitPos.z, 35, 0.5, 0.5, 0.5, 0.1);
-        }
-
         if (path.contains("ray_of_siphoning") || path.contains("siphon")) {
             if (hitEntity instanceof LivingEntity target) {
                 SpellDamageSource source = SpellDamageSource.source(bullet, shooter, spell).setLifestealPercent(1.0f);
@@ -399,7 +396,9 @@ public class SpellBulletEffectHandler {
                     } catch (Throwable ignored) {}
                 }
             }
-            level.sendParticles(ParticleHelper.SIPHON, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.3, 0.3, 0.3, 0.05);
+            MagicManager.spawnParticles(level, ParticleHelper.SIPHON, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.3, 0.3, 0.3, 0.05, true);
+            MagicManager.spawnParticles(level, ParticleHelper.BLOOD, hitPos.x, hitPos.y + 1, hitPos.z, 25, 0.3, 0.3, 0.3, 0.05, true);
+            MagicManager.spawnParticles(level, ParticleHelper.BLOOD_GROUND, hitPos.x, hitPos.y, hitPos.z, 20, 0.3, 0.3, 0.3, 0.05, true);
             level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.5f, 1.3f);
             return;
         }
