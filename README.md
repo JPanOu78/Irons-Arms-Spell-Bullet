@@ -26,17 +26,27 @@ Bridging the magical mastery of **Iron's Spells 'n Spellbooks** with the high-oc
 * **Fire Rate Governing:** Spell firing frequency is governed entirely by the firearm's mechanical fire rate, rpm, and reload speed.
 * **Zero Mana Depletion:** Propelled entirely by bullet energy—firing spell bullets consumes 0 player mana.
 
-### 3. Authentic Projectile Spells
+### 3. Authentic Projectile Spells & Rapid-Fire Bursts
 Spells with projectile nature are launched directly from the firearm's muzzle at bullet speed:
+* **Blaze Storm:** Fires a rapid 5-round fireball stream (1 instant + 4 queued bursts) tracking the player's aim.
+* **Blood Needles:** Single bullet unleashes a rapid 5-needle hemomantic spiral barrage, piercing targets with authentic lifesteal and 0 invulnerability frames.
+* **Flaming Barrage:** Fires a 5-round rapid volley of homing fireballs pursuing targeted enemies downrange.
 * **Fire:** `Fireball` (massive explosion), `Firebolt` (blazing incendiary dart), `Magma Bomb` (napalm burst).
 * **Ice:** `Icicle` (piercing frost needle).
-* **Lightning:** `Electrocute` (branching electric shockwave).
-* **Nature:** `Poison Arrow` (venomous ranged sting).
-* **Blood:** `Blood Needle` (hemomantic piercing projectile).
-* **Holy:** `Guiding Bolt` (radiant projectile).
-* **Eldritch / Void:** `Psychic Bolt` & `Sculk Tentacles`.
+* **Lightning:** `Lightning Lance` (hyper-velocity piercing javelin), `Ball Lightning` (slow-moving plasma sphere).
+* **Nature:** `Poison Arrow` (venomous ranged sting), `Acid Orb` (corrosive splash projectile).
+* **Holy:** `Guiding Bolt` (radiant homing bolt).
+* **Ender / Void:** `Magic Missile` (arcane seeker dart), `Comet` (orbital meteor slug).
 
-### 4. Instant Precision Beams & Rays
+### 4. Tactical Airstrikes & Orbital Bombardments
+Impact-driven spells convert firearm bullets into precision targeting lasers, summoning devastating celestial and artillery strikes at the bullet's impact location:
+* **Arrow Volley:** Fires a designated targeting bullet; upon impact, summons the authentic 3D `ArrowVolleyEntity` raining 24–40 spectral arrows in cascading rows down on the target zone.
+* **Starfall:** Designates an impact beacon with cosmic fog and portal rifts, summoning a 6-to-10 comet celestial bombardment raining explosive `Comet` projectiles from the upper atmosphere over 1.5 seconds.
+* **Thunderstorm:** Upon bullet impact, strikes with an immediate lightning bolt followed by an authentic localized thunderstorm calling down 3–5 additional lightning bolts across a 5-block radius.
+* **Sunbeam:** Calls down an authentic vertical solar pillar (`SunbeamEntity`) incinerating targets and undead with radiant solar fury.
+* **Blizzard:** Deploys a lingering `BlizzardAoe` cloud over the impact zone, continually bombarding enemies with freezing icicles and hail.
+
+### 5. Instant Precision Beams & Rays
 * **Ray of Frost:** 64-block instant ice laser rendering native 3D `RayOfFrostVisualEntity` accompanied by dense `ICY_FOG` and `SNOWFLAKE` particle beams, dealing heavy frost damage, applying freeze ticks, and slowing targets.
 * **Ray of Siphoning (Single-Burst Max Lifesteal):** Single-shot burst delivering maximum channel siphon damage instantly, healing the shooter, rendering a solid continuous blood laser beam (`BLOOD` & `SIPHON` particles), reverse blood stream into the gun barrel, and warden heartbeat audio.
 * **Eldritch Blast:** 54-block void laser rendering 3D `EldritchBlastVisualEntity` with void tentacle fog and darkness effect.

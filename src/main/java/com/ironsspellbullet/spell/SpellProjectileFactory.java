@@ -48,6 +48,7 @@ public class SpellProjectileFactory {
                 path.contains("firebolt") ||
                 path.contains("fire_arrow") ||
                 path.contains("blaze_storm") ||
+                path.contains("flaming_barrage") ||
                 path.contains("icicle") ||
                 path.contains("snowball") ||
                 path.contains("lightning_lance") ||
@@ -57,7 +58,6 @@ public class SpellProjectileFactory {
                 path.contains("magic_missile") ||
                 path.contains("magic_arrow") ||
                 path.contains("comet") ||
-                path.contains("starfall") ||
                 path.contains("arcane_shackle") ||
                 path.contains("blood_needles") ||
                 path.contains("acupuncture") ||
@@ -78,8 +78,7 @@ public class SpellProjectileFactory {
         return path.contains("fireball") ||
                 path.contains("magma") ||
                 path.contains("black_hole") ||
-                path.contains("comet") ||
-                path.contains("starfall");
+                path.contains("comet");
     }
 
     /**
@@ -167,6 +166,12 @@ public class SpellProjectileFactory {
                 // Single bullet fires a rapid 5-fireball Blaze Storm burst! (1 instant + 4 queued)
                 ActiveSpellEntityManager.queueBlazeStormBurst(level, shooter, origin, direction, damage, spellLevel, 4);
             }
+        } else if (path.contains("flaming_barrage")) {
+            projectile = new SmallMagicFireball(level, shooter);
+            if (totalPellets <= 1 && shooter instanceof net.minecraft.server.level.ServerPlayer) {
+                // Single bullet fires a rapid 5-fireball Flaming Barrage burst!
+                ActiveSpellEntityManager.queueFlamingBarrageBurst(level, shooter, origin, direction, damage, spellLevel, 4);
+            }
         } else if (path.contains("icicle")) {
             projectile = new IcicleProjectile(level, shooter);
         } else if (path.contains("snowball")) {
@@ -181,12 +186,18 @@ public class SpellProjectileFactory {
             projectile = new MagicMissileProjectile(level, shooter);
         } else if (path.contains("magic_arrow")) {
             projectile = new MagicArrowProjectile(level, shooter);
-        } else if (path.contains("comet") || path.contains("starfall")) {
+        } else if (path.contains("comet")) {
             projectile = new Comet(level, shooter);
         } else if (path.contains("arcane_shackle")) {
             projectile = new ArcaneShackleProjectile(level, shooter);
         } else if (path.contains("blood_needles") || path.contains("acupuncture")) {
-            projectile = new BloodNeedle(level, shooter);
+            BloodNeedle needle = new BloodNeedle(level, shooter);
+            needle.setZRot(0.0f);
+            projectile = needle;
+            if (totalPellets <= 1 && shooter instanceof net.minecraft.server.level.ServerPlayer) {
+                // Single bullet fires a rapid 5-needle Blood Needles burst! (1 instant + 4 queued)
+                ActiveSpellEntityManager.queueBloodNeedlesBurst(level, shooter, origin, direction, damage, spellLevel, 4);
+            }
         } else if (path.contains("blood_slash") || path.contains("shadow_slash")) {
             projectile = new BloodSlashProjectile(level, shooter);
         } else if (path.contains("wither_skull")) {

@@ -1,5 +1,6 @@
 package com.ironsspellbullet.spell;
 
+import com.ironsspellbullet.event.ActiveSpellEntityManager;
 import io.redspace.ironsspellbooks.api.registry.SchoolRegistry;
 import io.redspace.ironsspellbooks.api.registry.SpellRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
@@ -254,8 +255,22 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleLightningImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
-        // If Lightning Bolt or Thunderstorm, spawn authentic Lightning Bolt entity
-        if (path.contains("lightning_bolt") || path.contains("thunderstorm") || path.contains("volt_strike")) {
+        // If Lightning Bolt or Thunderstorm, spawn authentic Lightning strikes
+        if (path.contains("thunderstorm")) {
+            if (checkAndMarkVolley(bullet != null ? bullet.getUUID() : null)) {
+                // Immediate lightning strike + queued localized thunderstorm barrage!
+                LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+                if (bolt != null) {
+                    bolt.moveTo(hitPos);
+                    if (shooter instanceof ServerPlayer sp) {
+                        bolt.setCause(sp);
+                    }
+                    level.addFreshEntity(bolt);
+                }
+                ActiveSpellEntityManager.queueThunderstormBarrage(level, shooter, hitPos, spellLevel, 3 + (spellLevel / 2), 5.0f);
+                level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.THUNDERSTORM_PREPARE.get(), SoundSource.PLAYERS, 2.0f, 1.0f);
+            }
+        } else if (path.contains("lightning_bolt") || path.contains("volt_strike")) {
             LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
             if (bolt != null) {
                 bolt.moveTo(hitPos);
@@ -355,6 +370,20 @@ public class SpellBulletEffectHandler {
             target.removeAllEffects();
             level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.5f, 1.4f);
             level.sendParticles(ParticleTypes.ENCHANTED_HIT, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.4, 0.4, 0.4, 0.1);
+        }
+
+        // 2. Orbital Starfall Airstrike: Celestial Comet Bombardment
+        if (path.contains("starfall")) {
+            if (checkAndMarkVolley(bullet != null ? bullet.getUUID() : null)) {
+                ActiveSpellEntityManager.queueStarfallBombardment(level, shooter, hitPos, damage, spellLevel, 6 + spellLevel, 4.5f + spellLevel * 0.4f);
+                MagicManager.spawnParticles(level, ParticleHelper.COMET_FOG, hitPos.x, hitPos.y + 0.5, hitPos.z, 35, 1.5, 0.5, 1.5, 0.05, true);
+                level.sendParticles(ParticleTypes.PORTAL, hitPos.x, hitPos.y + 0.5, hitPos.z, 40, 1.5, 0.5, 1.5, 0.2);
+                level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 2.5f, 0.6f);
+            }
+            if (hitEntity instanceof LivingEntity target) {
+                target.hurt(SpellDamageSource.source(bullet, shooter, spell), damage);
+            }
+            return;
         }
 
         // 3. Black Hole Entity
