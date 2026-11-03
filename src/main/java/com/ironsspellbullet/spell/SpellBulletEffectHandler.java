@@ -7,9 +7,8 @@ import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
 import io.redspace.ironsspellbooks.api.util.Utils;
 import io.redspace.ironsspellbooks.damage.SpellDamageSource;
-import io.redspace.ironsspellbooks.network.particles.BloodSiphonParticlesPacket;
-import io.redspace.ironsspellbooks.util.ParticleHelper;
-import net.neoforged.neoforge.network.PacketDistributor;
+import io.redspace.ironsspellbooks.entity.mobs.SummonedHorse;
+import io.redspace.ironsspellbooks.entity.mobs.SummonedPolarBear;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedVex;
 import io.redspace.ironsspellbooks.entity.mobs.SummonedZombie;
 import io.redspace.ironsspellbooks.entity.spells.BlizzardAoe;
@@ -19,12 +18,22 @@ import io.redspace.ironsspellbooks.entity.spells.HealingAoe;
 import io.redspace.ironsspellbooks.entity.spells.black_hole.BlackHole;
 import io.redspace.ironsspellbooks.entity.spells.devour_jaw.DevourJaw;
 import io.redspace.ironsspellbooks.entity.spells.ice_spike.IceSpikeEntity;
+import io.redspace.ironsspellbooks.entity.spells.ice_tomb.IceTombEntity;
 import io.redspace.ironsspellbooks.entity.spells.poison_cloud.PoisonCloud;
 import io.redspace.ironsspellbooks.entity.spells.root.RootEntity;
+import io.redspace.ironsspellbooks.entity.spells.scapegoat.ScapegoatEntity;
+import io.redspace.ironsspellbooks.entity.spells.spectral_hammer.SpectralHammer;
 import io.redspace.ironsspellbooks.entity.spells.sunbeam.SunbeamEntity;
 import io.redspace.ironsspellbooks.entity.spells.void_tentacle.VoidTentacle;
+import io.redspace.ironsspellbooks.entity.spells.wall_of_fire.WallOfFireEntity;
 import io.redspace.ironsspellbooks.entity.spells.wisp.WispEntity;
+import io.redspace.ironsspellbooks.network.particles.BloodSiphonParticlesPacket;
 import io.redspace.ironsspellbooks.registries.EntityRegistry;
+import io.redspace.ironsspellbooks.registries.MobEffectRegistry;
+import io.redspace.ironsspellbooks.registries.SoundRegistry;
+import io.redspace.ironsspellbooks.util.ParticleHelper;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -37,11 +46,15 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Sheep;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,7 +64,7 @@ import java.util.UUID;
 
 /**
  * Handles the impact of a Spell Bullet, executing the spell's effect instantly at the target location.
- * Fully supports all schools, direct entities, AoEs, debuffs, buffs, and addon spells.
+ * Fully supports all 9 schools, authentic entities, tactical warps, stimulus darts, and drop pods!
  */
 public class SpellBulletEffectHandler {
 
@@ -91,9 +104,9 @@ public class SpellBulletEffectHandler {
 
         // Execute school-specific behavior
         if (school.equals(SchoolRegistry.FIRE.get())) {
-            handleFireImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
+            handleFireImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage, hitResult);
         } else if (school.equals(SchoolRegistry.ICE.get())) {
-            handleIceImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
+            handleIceImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage, hitResult);
         } else if (school.equals(SchoolRegistry.LIGHTNING.get())) {
             handleLightningImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
         } else if (school.equals(SchoolRegistry.HOLY.get())) {
@@ -103,13 +116,13 @@ public class SpellBulletEffectHandler {
         } else if (school.equals(SchoolRegistry.BLOOD.get())) {
             handleBloodImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
         } else if (school.equals(SchoolRegistry.EVOCATION.get())) {
-            handleEvocationImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
+            handleEvocationImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage, hitResult);
         } else if (school.equals(SchoolRegistry.NATURE.get())) {
             handleNatureImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
         } else if (school.equals(SchoolRegistry.ELDRITCH.get())) {
             handleEldritchImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, path, spellLevel, damage);
         } else {
-            // Default generic spell damage fallback for addons
+            // Default generic spell damage fallback
             if (hitEntity instanceof LivingEntity livingTarget) {
                 SpellDamageSource source = SpellDamageSource.source(bullet, shooter, spell);
                 livingTarget.hurt(source, damage);
@@ -117,7 +130,26 @@ public class SpellBulletEffectHandler {
         }
     }
 
-    private static void handleFireImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
+    private static void handleFireImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage, HitResult hitResult) {
+        // 1. Tactical Barricade: Wall of Fire
+        if (path.contains("wall_of_fire")) {
+            Vec3 normal = (shooter != null) ? shooter.getLookAngle().cross(new Vec3(0, 1, 0)).normalize() : new Vec3(1, 0, 0);
+            Vec3 p1 = hitPos.subtract(normal.scale(3.0));
+            Vec3 p2 = hitPos.add(normal.scale(3.0));
+            WallOfFireEntity wall = new WallOfFireEntity(level, shooter, List.of(p1, hitPos, p2), damage);
+            wall.setPos(hitPos);
+            level.addFreshEntity(wall);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 1.0f);
+            return;
+        }
+
+        // 2. Tactical Mobility: Burning Dash
+        if (path.contains("burning_dash") && shooter != null) {
+            shooter.teleportTo(hitPos.x, hitPos.y + 0.2, hitPos.z);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 1.2f);
+            level.sendParticles(ParticleTypes.FLAME, hitPos.x, hitPos.y + 1, hitPos.z, 35, 0.5, 0.5, 0.5, 0.1);
+        }
+
         float radius = 1.8f + spellLevel * 0.4f;
         level.explode(bullet, hitPos.x, hitPos.y, hitPos.z, radius, Level.ExplosionInteraction.NONE);
 
@@ -139,10 +171,38 @@ public class SpellBulletEffectHandler {
         level.sendParticles(ParticleTypes.LAVA, hitPos.x, hitPos.y, hitPos.z, 10, 0.2, 0.2, 0.2, 0.1);
     }
 
-    private static void handleIceImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
+    private static void handleIceImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage, HitResult hitResult) {
         int freezeTicks = 120 + spellLevel * 60;
 
-        // If Blizzard spell, deploy Blizzard AOE
+        // 1. Tactical Mobility: Frost Step (Blink to hit point with freezing shockwave)
+        if (path.contains("frost_step") && shooter != null) {
+            shooter.teleportTo(hitPos.x, hitPos.y + 0.2, hitPos.z);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.FROST_STEP.get(), SoundSource.PLAYERS, 1.5f, 1.2f);
+            level.sendParticles(ParticleHelper.ICY_FOG, hitPos.x, hitPos.y + 1, hitPos.z, 35, 0.6, 0.5, 0.6, 0.05);
+        }
+
+        // 2. Minion Drop Pod: Summon Polar Bear
+        if (path.contains("summon_polar_bear")) {
+            SummonedPolarBear bear = new SummonedPolarBear(level, shooter);
+            bear.moveTo(hitPos);
+            level.addFreshEntity(bear);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 1.5f, 1.0f);
+            level.sendParticles(ParticleHelper.SNOWFLAKE, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.5, 0.5, 0.5, 0.05);
+            return;
+        }
+
+        // 3. Ice Tomb Entity
+        if (path.contains("ice_tomb") && hitEntity instanceof LivingEntity target) {
+            IceTombEntity tomb = new IceTombEntity(level, target);
+            tomb.moveTo(target.position());
+            tomb.setLifetime(80 + spellLevel * 20);
+            tomb.setHealing(damage * 0.5f);
+            level.addFreshEntity(tomb);
+            target.startRiding(tomb, true);
+            return;
+        }
+
+        // 4. Blizzard AoE
         if (path.contains("blizzard")) {
             BlizzardAoe blizzard = new BlizzardAoe(EntityRegistry.BLIZZARD_AOE.get(), level);
             blizzard.setOwner(shooter);
@@ -213,6 +273,27 @@ public class SpellBulletEffectHandler {
     private static void handleHolyImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
         float healAmount = 6.0f + spellLevel * 3.0f;
 
+        // 1. Stim / Support Dart (Ranged Ally Buffing)
+        boolean isAlly = (hitEntity instanceof LivingEntity target && (target == shooter || target.isAlliedTo(shooter)));
+        if (isAlly) {
+            LivingEntity ally = (LivingEntity) hitEntity;
+            if (path.contains("haste")) {
+                ally.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 300 + spellLevel * 60, 1));
+            } else if (path.contains("fortify")) {
+                ally.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 300 + spellLevel * 60, 1));
+            } else if (path.contains("angel_wings")) {
+                ally.addEffect(new MobEffectInstance(MobEffectRegistry.ANGEL_WINGS, 200 + spellLevel * 60, 0));
+            } else if (path.contains("cleanse")) {
+                ally.removeAllEffects();
+                level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.CLEANSE_CAST.get(), SoundSource.PLAYERS, 1.5f, 1.0f);
+            } else {
+                ally.heal(healAmount);
+                ally.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100 + spellLevel * 20, 1));
+            }
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, ally.getX(), ally.getY() + 1, ally.getZ(), 20, 0.4, 0.4, 0.4, 0.05);
+            return;
+        }
+
         if (path.contains("cloud_of_regeneration") || path.contains("healing_circle")) {
             HealingAoe aoe = new HealingAoe(level);
             aoe.setOwner(shooter);
@@ -227,7 +308,7 @@ public class SpellBulletEffectHandler {
             sunbeam.moveTo(strikePos);
             sunbeam.setDamage(damage);
             level.addFreshEntity(sunbeam);
-            level.playSound(null, sunbeam.blockPosition(), io.redspace.ironsspellbooks.registries.SoundRegistry.SUNBEAM_WINDUP.get(), SoundSource.NEUTRAL, 3.5f, 1.0f);
+            level.playSound(null, sunbeam.blockPosition(), SoundRegistry.SUNBEAM_WINDUP.get(), SoundSource.NEUTRAL, 3.5f, 1.0f);
         } else if (path.contains("wisp")) {
             WispEntity wisp = new WispEntity(level, shooter, damage * 0.4f);
             wisp.setPos(hitPos.x, hitPos.y + 1.0, hitPos.z);
@@ -240,10 +321,6 @@ public class SpellBulletEffectHandler {
                 SpellDamageSource source = SpellDamageSource.source(bullet, shooter, spell);
                 target.hurt(source, damage * 1.6f);
                 target.igniteForSeconds(4 + spellLevel);
-            } else if (target == shooter || target.isAlliedTo(shooter)) {
-                // Heal ally
-                target.heal(healAmount);
-                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100 + spellLevel * 20, 1));
             } else {
                 SpellDamageSource source = SpellDamageSource.source(bullet, shooter, spell);
                 target.hurt(source, damage);
@@ -258,15 +335,22 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleEnderImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
-        // If Teleport spell, teleport shooter to hit point
+        // 1. Tactical Mobility: Teleport Bullet
         if (path.contains("teleport") && shooter != null) {
             shooter.teleportTo(hitPos.x, hitPos.y + 0.1, hitPos.z);
-            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.2f, 1.0f);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.ABYSSAL_TELEPORT.get(), SoundSource.PLAYERS, 1.2f, 1.0f);
             level.sendParticles(ParticleTypes.PORTAL, hitPos.x, hitPos.y + 1, hitPos.z, 40, 0.5, 1.0, 0.5, 0.2);
             return;
         }
 
-        // If Black Hole spell, deploy Black Hole entity
+        // 2. Anti-Magic / Dispel Bullet: Counterspell
+        if (path.contains("counterspell") && hitEntity instanceof LivingEntity target) {
+            target.removeAllEffects();
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.5f, 1.4f);
+            level.sendParticles(ParticleTypes.ENCHANTED_HIT, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.4, 0.4, 0.4, 0.1);
+        }
+
+        // 3. Black Hole Entity
         if (path.contains("black_hole")) {
             BlackHole blackHole = new BlackHole(level, shooter);
             blackHole.setPos(hitPos);
@@ -294,6 +378,13 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleBloodImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
+        // 1. Tactical Mobility: Blood Step (Blink + Blood Burst)
+        if (path.contains("blood_step") && shooter != null) {
+            shooter.teleportTo(hitPos.x, hitPos.y + 0.2, hitPos.z);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.BLOOD_STEP.get(), SoundSource.PLAYERS, 1.5f, 1.2f);
+            level.sendParticles(ParticleHelper.BLOOD, hitPos.x, hitPos.y + 1, hitPos.z, 35, 0.5, 0.5, 0.5, 0.1);
+        }
+
         if (path.contains("ray_of_siphoning") || path.contains("siphon")) {
             if (hitEntity instanceof LivingEntity target) {
                 SpellDamageSource source = SpellDamageSource.source(bullet, shooter, spell).setLifestealPercent(1.0f);
@@ -339,11 +430,59 @@ public class SpellBulletEffectHandler {
         level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.HONEY_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
     }
 
-    private static void handleEvocationImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
+    private static void handleEvocationImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage, HitResult hitResult) {
+        // 1. Minion Drop Pod: Summon Vex
         if (path.contains("summon_vex")) {
             SummonedVex vex = new SummonedVex(level, shooter);
             vex.setPos(hitPos.x, hitPos.y + 1, hitPos.z);
             level.addFreshEntity(vex);
+        }
+
+        // 2. Minion Drop Pod: Summon Horse (Spectral Steed)
+        if (path.contains("summon_horse")) {
+            SummonedHorse horse = new SummonedHorse(level, shooter);
+            horse.moveTo(hitPos);
+            level.addFreshEntity(horse);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.HORSE_AMBIENT, SoundSource.PLAYERS, 1.5f, 1.0f);
+            level.sendParticles(ParticleTypes.PORTAL, hitPos.x, hitPos.y + 1, hitPos.z, 30, 0.5, 0.5, 0.5, 0.1);
+            return;
+        }
+
+        // 3. Decoy: Scapegoat Entity
+        if (path.contains("scapegoat")) {
+            ScapegoatEntity goat = new ScapegoatEntity(level);
+            goat.moveTo(hitPos);
+            goat.setOwner(shooter);
+            goat.setDurationRemaining(300);
+            level.addFreshEntity(goat);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.GOAT_SCREAMING_AMBIENT, SoundSource.PLAYERS, 1.5f, 1.0f);
+            Utils.performTaunt(goat, 14.0f, Utils.tauntPredicate(shooter));
+            return;
+        }
+
+        // 4. Spectral Hammer Entity
+        if (path.contains("spectral_hammer")) {
+            BlockHitResult bhr = (hitResult instanceof BlockHitResult r) ? r : new BlockHitResult(hitPos, Direction.UP, BlockPos.containing(hitPos), false);
+            SpectralHammer hammer = new SpectralHammer(level, shooter, bhr, spellLevel, (int) damage);
+            hammer.moveTo(hitPos);
+            level.addFreshEntity(hammer);
+            return;
+        }
+
+        // 5. Wololo
+        if (path.contains("wololo")) {
+            if (hitEntity instanceof Sheep sheep) {
+                sheep.setColor(DyeColor.byId(level.random.nextInt(16)));
+            }
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundEvents.EVOKER_PREPARE_WOLOLO, SoundSource.PLAYERS, 2.0f, 1.0f);
+            level.sendParticles(ParticleTypes.ENCHANT, hitPos.x, hitPos.y + 1, hitPos.z, 25, 0.4, 0.4, 0.4, 0.1);
+        }
+
+        // 6. Stim Dart: Invisibility on Ally
+        if (path.contains("invisibility") && hitEntity instanceof LivingEntity ally) {
+            ally.addEffect(new MobEffectInstance(MobEffectRegistry.TRUE_INVISIBILITY, 300 + spellLevel * 60, 0));
+            level.sendParticles(ParticleTypes.SQUID_INK, ally.getX(), ally.getY() + 1, ally.getZ(), 20, 0.4, 0.4, 0.4, 0.05);
+            return;
         }
 
         if (hitEntity instanceof LivingEntity target) {
@@ -365,6 +504,30 @@ public class SpellBulletEffectHandler {
     }
 
     private static void handleNatureImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
+        // 1. Tactical Mining Bullet: Touch Dig
+        if (path.contains("touch_dig")) {
+            BlockPos pos = BlockPos.containing(hitPos);
+            if (level.getBlockState(pos).isAir()) pos = pos.relative(Direction.DOWN);
+            level.destroyBlock(pos, true, shooter);
+            level.playSound(null, hitPos.x, hitPos.y, hitPos.z, SoundRegistry.TOUCH_DIG_CAST.get(), SoundSource.PLAYERS, 1.4f, 1.0f);
+            level.sendParticles(ParticleTypes.CRIT, hitPos.x, hitPos.y, hitPos.z, 25, 0.3, 0.3, 0.3, 0.1);
+            return;
+        }
+
+        // 2. Stim Darts: Oakskin and Spider Aspect on Ally
+        if (hitEntity instanceof LivingEntity ally && (ally == shooter || ally.isAlliedTo(shooter))) {
+            if (path.contains("oakskin")) {
+                ally.addEffect(new MobEffectInstance(MobEffectRegistry.OAKSKIN, 300 + spellLevel * 60, 0));
+                level.playSound(null, ally.getX(), ally.getY(), ally.getZ(), SoundRegistry.OAKSKIN_CAST.get(), SoundSource.PLAYERS, 1.5f, 1.0f);
+                level.sendParticles(ParticleTypes.HAPPY_VILLAGER, ally.getX(), ally.getY() + 1, ally.getZ(), 20, 0.4, 0.4, 0.4, 0.05);
+                return;
+            } else if (path.contains("spider_aspect")) {
+                ally.addEffect(new MobEffectInstance(MobEffectRegistry.SPIDER_ASPECT, 300 + spellLevel * 60, 0));
+                level.playSound(null, ally.getX(), ally.getY(), ally.getZ(), SoundRegistry.SPIDER_ASPECT_CAST.get(), SoundSource.PLAYERS, 1.5f, 1.0f);
+                return;
+            }
+        }
+
         if (path.contains("earthquake")) {
             EarthquakeAoe aoe = new EarthquakeAoe(level);
             aoe.setOwner(shooter);
