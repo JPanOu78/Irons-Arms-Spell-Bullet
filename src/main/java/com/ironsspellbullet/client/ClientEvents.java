@@ -5,14 +5,16 @@ import com.ironsspellbullet.client.gui.SpellBulletActionbarOverlay;
 import com.ironsspellbullet.client.gui.SpellWheelOption;
 import com.ironsspellbullet.event.ActiveSpellBulletManager;
 import com.ironsspellbullet.event.ReloadHelper;
-import com.ironsspellbullet.item.ModItems;
-import com.ironsspellbullet.item.SpellBulletItem;
 import com.ironsspellbullet.network.ServerboundSelectSpellBulletPacket;
 import com.ironsspellbullet.spell.SpellBulletEffectHandler;
+import io.redspace.irons_artifice.data.Value;
 import io.redspace.irons_artifice.item.GunItem;
+import io.redspace.irons_artifice.registry.ItemRegistry;
+import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.spells.SchoolType;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
 import io.redspace.ironsspellbooks.api.util.Utils;
+import com.ironsspellbullet.spell.SpellProjectileFactory;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -45,15 +47,22 @@ public class ClientEvents {
             "key.category.irons_spell_bullet"
     );
 
+    public static final KeyMapping KEY_CONFIG_HUD = new KeyMapping(
+            "key.irons_spell_bullet.config_hud",
+            GLFW.GLFW_KEY_UNKNOWN,
+            "key.category.irons_spell_bullet"
+    );
+
     @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
         event.register(KEY_SELECT_SPELL_BULLET);
+        event.register(KEY_CONFIG_HUD);
     }
 
     @SubscribeEvent
     public static void registerGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAbove(
-                VanillaGuiLayers.HOTBAR,
+                VanillaGuiLayers.AIR_LEVEL,
                 net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(IronsArmsSpellBulletMod.MODID, "spell_bullet_actionbar"),
                 SpellBulletActionbarOverlay.INSTANCE
         );
@@ -61,19 +70,19 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void onItemColors(RegisterColorHandlersEvent.Item event) {
+        // Tint Iron's Arms native Bullet item with the spell school's color when imbued with a spell!
         event.register((stack, tintIndex) -> {
-            if (tintIndex == 0) {
-                SpellData data = SpellBulletItem.getSpellData(stack);
+            if (tintIndex == 0 && ReloadHelper.isSpellBullet(stack)) {
+                SpellData data = ReloadHelper.getSpellData(stack);
                 if (data != null && !data.equals(SpellData.EMPTY) && data.getSpell() != null) {
                     SchoolType school = data.getSpell().getSchoolType();
                     if (school != null && school.getTargetingColor() != null) {
-                        // Ensure alpha is 0xFF (255) so item is fully opaque and vibrantly colored
                         return 0xFF000000 | Utils.packRGB(school.getTargetingColor());
                     }
                 }
             }
             return 0xFFFFFFFF;
-        }, ModItems.SPELL_BULLET.get());
+        }, ItemRegistry.BULLET.get());
     }
 
     /**
@@ -90,6 +99,12 @@ public class ClientEvents {
 
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null && mc.screen == null) {
+                // Check in-game keybind to open HUD configuration screen
+                while (KEY_CONFIG_HUD.consumeClick()) {
+                    mc.setScreen(new com.ironsspellbullet.client.gui.SpellBulletHudConfigScreen(null));
+                    return;
+                }
+
                 boolean isAltActive = KEY_SELECT_SPELL_BULLET.isDown() || Screen.hasAltDown();
                 ItemStack main = mc.player.getMainHandItem();
                 ItemStack off = mc.player.getOffhandItem();
@@ -168,25 +183,48 @@ public class ClientEvents {
             SpellBulletActionbarOverlay.show(SpellBulletActionbarOverlay.MAX_DISPLAY_TICKS, available, currentSelectionIndex);
         }
 
+        public static boolean isHoldingShotgun(Player player) {
+            if (player == null) return false;
+            return isShotgunItem(player.getMainHandItem()) || isShotgunItem(player.getOffhandItem());
+        }
+
+        public static boolean isShotgunItem(ItemStack stack) {
+            if (stack != null && stack.getItem() instanceof GunItem gunItem) {
+                if (gunItem.getGun() != null && gunItem.getGun().baseProfile() != null) {
+                    Value countVal = gunItem.getGun().baseProfile().getOrDefault(io.redspace.irons_artifice.data.ShotComponents.PROJECTILE_COUNT);
+                    if (countVal != null) {
+                        return countVal.compute() > 1.5;
+                    }
+                }
+            }
+            return false;
+        }
+
         public static List<SpellWheelOption> getAvailableOptions(Player player) {
             List<SpellWheelOption> options = new ArrayList<>();
             if (player == null) return options;
 
             boolean isCreative = player.hasInfiniteMaterials();
+            boolean holdingShotgun = isHoldingShotgun(player);
 
             // Count standard bullets (including Ammo Box / containers)
             int normalBullets = isCreative ? 999 : ReloadHelper.countSpecificBullets(player, ActiveSpellBulletManager.NORMAL_BULLET);
 
-            // Find all distinct spell bullets in player inventory
+            // Find all distinct spell-imbued bullets in player inventory
             Map<String, SpellData> distinctSpells = new LinkedHashMap<>();
             Map<String, Integer> spellCounts = new LinkedHashMap<>();
 
             for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                 ItemStack stack = player.getInventory().getItem(i);
-                if (stack.getItem() instanceof SpellBulletItem && SpellBulletItem.hasSpell(stack)) {
-                    SpellData data = SpellBulletItem.getSpellData(stack);
+                if (ReloadHelper.isSpellBullet(stack)) {
+                    SpellData data = ReloadHelper.getSpellData(stack);
                     if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
-                        String id = data.getSpell().getSpellResource().toString();
+                        AbstractSpell spell = data.getSpell();
+                        // For shotguns: only allow projectile and ray/beam spells! Exclude area zones, summons, foot trailing, etc.
+                        if (holdingShotgun && !SpellProjectileFactory.isProjectileSpell(spell)) {
+                            continue;
+                        }
+                        String id = spell.getSpellResource().toString();
                         distinctSpells.putIfAbsent(id, data);
                         spellCounts.put(id, spellCounts.getOrDefault(id, 0) + (isCreative ? 999 : stack.getCount()));
                     }
@@ -195,12 +233,15 @@ public class ClientEvents {
 
             // Also check offhand item
             ItemStack offhand = player.getOffhandItem();
-            if (offhand.getItem() instanceof SpellBulletItem && SpellBulletItem.hasSpell(offhand)) {
-                SpellData data = SpellBulletItem.getSpellData(offhand);
+            if (ReloadHelper.isSpellBullet(offhand)) {
+                SpellData data = ReloadHelper.getSpellData(offhand);
                 if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
-                    String id = data.getSpell().getSpellResource().toString();
-                    distinctSpells.putIfAbsent(id, data);
-                    spellCounts.put(id, spellCounts.getOrDefault(id, 0) + (isCreative ? 999 : offhand.getCount()));
+                    AbstractSpell spell = data.getSpell();
+                    if (!holdingShotgun || SpellProjectileFactory.isProjectileSpell(spell)) {
+                        String id = spell.getSpellResource().toString();
+                        distinctSpells.putIfAbsent(id, data);
+                        spellCounts.put(id, spellCounts.getOrDefault(id, 0) + (isCreative ? 999 : offhand.getCount()));
+                    }
                 }
             }
 

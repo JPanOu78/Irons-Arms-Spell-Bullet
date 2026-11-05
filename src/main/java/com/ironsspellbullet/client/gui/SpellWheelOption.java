@@ -1,16 +1,15 @@
 package com.ironsspellbullet.client.gui;
 
-import com.ironsspellbullet.item.ModItems;
+import com.ironsspellbullet.event.ReloadHelper;
 import io.redspace.irons_artifice.registry.ItemRegistry;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
-import io.redspace.ironsspellbooks.api.spells.ISpellContainer;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * An option in the Arcane Bullet Wheel (either a normal bullet or a specific spell bullet).
+ * An option in the Arcane Bullet Wheel (either a normal bullet or a specific spell-imbued bullet).
  */
 public record SpellWheelOption(
         String id,
@@ -34,8 +33,7 @@ public record SpellWheelOption(
     }
 
     public static SpellWheelOption ofSpell(SpellData spellData, int count, Player player) {
-        ItemStack stack = new ItemStack(ModItems.SPELL_BULLET.get());
-        ISpellContainer.createScrollContainer(spellData.getSpell(), spellData.getLevel(), stack);
+        ItemStack stack = ReloadHelper.createSpellBullet(spellData.getSpell(), spellData.getLevel(), 1);
 
         Component name = (player != null && spellData.getSpell() != null)
                 ? spellData.getSpell().getDisplayName(player)

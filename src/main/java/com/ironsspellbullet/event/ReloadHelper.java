@@ -2,8 +2,7 @@ package com.ironsspellbullet.event;
 
 import com.ironsspellbullet.component.ModDataComponents;
 import com.ironsspellbullet.component.SpellChamberData;
-import com.ironsspellbullet.item.ModItems;
-import com.ironsspellbullet.item.SpellBulletItem;
+import com.ironsspellbullet.spell.SpellBulletEffectHandler;
 import io.redspace.irons_artifice.item.BulletContainerItem;
 import io.redspace.irons_artifice.item.GunItem;
 import io.redspace.irons_artifice.item.MagazineContents;
@@ -12,6 +11,8 @@ import io.redspace.irons_artifice.utils.IronsArtificeTags;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.spells.ISpellContainer;
 import io.redspace.ironsspellbooks.api.spells.SpellData;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -22,6 +23,47 @@ import java.util.List;
 public class ReloadHelper {
 
     /**
+     * Creates an Iron's Arms Bullet ItemStack imbued with the specified spell and level.
+     */
+    public static ItemStack createSpellBullet(AbstractSpell spell, int level, int count) {
+        ItemStack result = new ItemStack(ItemRegistry.BULLET.get(), count);
+        if (spell != null) {
+            ISpellContainer.createScrollContainer(spell, level, result);
+            result.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+            Component spellName = Component.translatable(spell.getComponentId())
+                    .append(" ")
+                    .append(Component.translatable("enchantment.level." + level));
+            result.set(DataComponents.ITEM_NAME,
+                    Component.translatable("item.irons_spell_bullet.spell_bullet.named", spellName));
+        }
+        return result;
+    }
+
+    /**
+     * Returns true if the stack is an Iron's Arms bullet (or ammo) imbued with a valid spell.
+     */
+    public static boolean isSpellBullet(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        if (!stack.is(ItemRegistry.BULLET.get()) && !stack.is(IronsArtificeTags.AMMO)) return false;
+        return hasSpell(stack);
+    }
+
+    public static boolean hasSpell(ItemStack stack) {
+        SpellData data = getSpellData(stack);
+        return data != null && !data.equals(SpellData.EMPTY) && data.getSpell() != null;
+    }
+
+    public static SpellData getSpellData(ItemStack stack) {
+        if (stack != null && !stack.isEmpty() && ISpellContainer.isSpellContainer(stack)) {
+            ISpellContainer container = ISpellContainer.get(stack);
+            if (container != null && !container.isEmpty()) {
+                return container.getSpellAtIndex(0);
+            }
+        }
+        return SpellData.EMPTY;
+    }
+
+    /**
      * Counts reserve bullets available for the active selected bullet type only.
      */
     public static int countSpecificBullets(Player player, String activeBulletId) {
@@ -30,7 +72,7 @@ public class ReloadHelper {
         int count = 0;
 
         if (ActiveSpellBulletManager.NORMAL_BULLET.equals(activeBulletId)) {
-            // Count standard bullets only
+            // Count standard (non-spell) bullets only
             for (int i = 0; i < inv.getContainerSize(); i++) {
                 ItemStack stack = inv.getItem(i);
                 if (stack.isEmpty()) continue;
@@ -47,7 +89,7 @@ public class ReloadHelper {
                 ItemStack stack = inv.getItem(i);
                 if (stack.isEmpty()) continue;
 
-                if (stack.getItem() instanceof SpellBulletItem && matchesSpell(stack, activeBulletId)) {
+                if (isSpellBullet(stack) && matchesSpell(stack, activeBulletId)) {
                     count += stack.getCount();
                 }
             }
@@ -95,9 +137,9 @@ public class ReloadHelper {
         } else {
             // Consume ONLY the active chosen spell bullet
             ItemStack offhand = player.getOffhandItem();
-            if (remaining > 0 && offhand.getItem() instanceof SpellBulletItem && matchesSpell(offhand, activeSelected)) {
+            if (remaining > 0 && isSpellBullet(offhand) && matchesSpell(offhand, activeSelected)) {
                 int take = Math.min(remaining, offhand.getCount());
-                SpellData spellData = SpellBulletItem.getSpellData(offhand);
+                SpellData spellData = getSpellData(offhand);
                 SpellChamberData.SpellSlotEntry entry = SpellChamberData.SpellSlotEntry.fromSpellData(spellData);
                 for (int i = 0; i < take; i++) consumedEntries.add(entry);
                 offhand.shrink(take);
@@ -108,9 +150,9 @@ public class ReloadHelper {
             for (int i = 0; i < inv.getContainerSize(); i++) {
                 if (remaining <= 0) break;
                 ItemStack stack = inv.getItem(i);
-                if (stack.getItem() instanceof SpellBulletItem && matchesSpell(stack, activeSelected)) {
+                if (isSpellBullet(stack) && matchesSpell(stack, activeSelected)) {
                     int take = Math.min(remaining, stack.getCount());
-                    SpellData spellData = SpellBulletItem.getSpellData(stack);
+                    SpellData spellData = getSpellData(stack);
                     SpellChamberData.SpellSlotEntry entry = SpellChamberData.SpellSlotEntry.fromSpellData(spellData);
                     for (int j = 0; j < take; j++) consumedEntries.add(entry);
                     stack.shrink(take);
@@ -159,7 +201,7 @@ public class ReloadHelper {
     }
 
     /**
-     * Safely unloads all rounds from the gun back into the player's inventory.
+     * Safely unloads all rounds from the gun back into the player's inventory as Iron's Arms bullets.
      */
     public static void unloadGunChamber(Player player, ItemStack gunStack) {
         if (player == null || gunStack == null) return;
@@ -178,12 +220,8 @@ public class ReloadHelper {
         for (int i = 0; i < totalCount; i++) {
             SpellChamberData.SpellSlotEntry entry = loaded.get(i);
             ItemStack bulletStack;
-            if (entry != null && entry.hasSpell()) {
-                bulletStack = new ItemStack(ModItems.SPELL_BULLET.get());
-                AbstractSpell spell = entry.getSpell();
-                if (spell != null) {
-                    ISpellContainer.createScrollContainer(spell, entry.spellLevel(), bulletStack);
-                }
+            if (entry != null && entry.hasSpell() && entry.getSpell() != null) {
+                bulletStack = createSpellBullet(entry.getSpell(), entry.spellLevel(), 1);
             } else {
                 bulletStack = new ItemStack(ItemRegistry.BULLET.get());
             }
@@ -198,15 +236,15 @@ public class ReloadHelper {
     }
 
     public static boolean isNormalBullet(ItemStack stack) {
-        if (stack.isEmpty()) return false;
-        if (stack.getItem() instanceof SpellBulletItem) return false;
+        if (stack == null || stack.isEmpty()) return false;
+        if (hasSpell(stack)) return false;
         return stack.is(ItemRegistry.BULLET.get()) || stack.is(IronsArtificeTags.AMMO);
     }
 
     public static boolean matchesSpell(ItemStack stack, String spellId) {
-        SpellData data = SpellBulletItem.getSpellData(stack);
+        SpellData data = getSpellData(stack);
         if (data != null && data.getSpell() != null) {
-            if (com.ironsspellbullet.spell.SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
+            if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
                 return false;
             }
             return data.getSpell().getSpellResource().toString().equals(spellId);
@@ -226,17 +264,17 @@ public class ReloadHelper {
             GunItem.setMagazine(gunStack, new MagazineContents(capacity));
         } else {
             AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(net.minecraft.resources.ResourceLocation.parse(selectedBulletId));
-            if (spell != null && !com.ironsspellbullet.spell.SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+            if (spell != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
                 int level = spell.getMaxLevel();
                 ItemStack offhand = player.getOffhandItem();
-                if (offhand.getItem() instanceof SpellBulletItem && matchesSpell(offhand, selectedBulletId)) {
-                    SpellData sd = SpellBulletItem.getSpellData(offhand);
+                if (isSpellBullet(offhand) && matchesSpell(offhand, selectedBulletId)) {
+                    SpellData sd = getSpellData(offhand);
                     if (sd != null) level = sd.getLevel();
                 } else {
                     for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                         ItemStack invStack = player.getInventory().getItem(i);
-                        if (invStack.getItem() instanceof SpellBulletItem && matchesSpell(invStack, selectedBulletId)) {
-                            SpellData sd = SpellBulletItem.getSpellData(invStack);
+                        if (isSpellBullet(invStack) && matchesSpell(invStack, selectedBulletId)) {
+                            SpellData sd = getSpellData(invStack);
                             if (sd != null) {
                                 level = sd.getLevel();
                                 break;

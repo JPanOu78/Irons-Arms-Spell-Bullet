@@ -28,6 +28,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
@@ -79,14 +80,14 @@ public class GunplayEvents {
                 if (spell != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
                     int spellLevel = spell.getMaxLevel();
                     ItemStack offhand = player.getOffhandItem();
-                    if (offhand.getItem() instanceof com.ironsspellbullet.item.SpellBulletItem && ReloadHelper.matchesSpell(offhand, active)) {
-                        io.redspace.ironsspellbooks.api.spells.SpellData sd = com.ironsspellbullet.item.SpellBulletItem.getSpellData(offhand);
+                    if (ReloadHelper.isSpellBullet(offhand) && ReloadHelper.matchesSpell(offhand, active)) {
+                        io.redspace.ironsspellbooks.api.spells.SpellData sd = ReloadHelper.getSpellData(offhand);
                         if (sd != null) spellLevel = sd.getLevel();
                     } else {
                         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                             ItemStack invStack = player.getInventory().getItem(i);
-                            if (invStack.getItem() instanceof com.ironsspellbullet.item.SpellBulletItem && ReloadHelper.matchesSpell(invStack, active)) {
-                                io.redspace.ironsspellbooks.api.spells.SpellData sd = com.ironsspellbullet.item.SpellBulletItem.getSpellData(invStack);
+                            if (ReloadHelper.isSpellBullet(invStack) && ReloadHelper.matchesSpell(invStack, active)) {
+                                io.redspace.ironsspellbooks.api.spells.SpellData sd = ReloadHelper.getSpellData(invStack);
                                 if (sd != null) {
                                     spellLevel = sd.getLevel();
                                     break;
@@ -227,12 +228,45 @@ public class GunplayEvents {
                 }
             }
 
+            Vec3 eyeOrigin = event.getOrigin();
+            Vec3 aimDirection = event.getDirection().normalize();
+
+            // 1. Calculate physical gun muzzle position based on gun profile and handedness
+            double muzzleOffset = 0.0;
+            if (profile.components().has(ShotComponents.MUZZLE_OFFSET)) {
+                muzzleOffset = profile.value(ShotComponents.MUZZLE_OFFSET);
+            }
+            boolean isLeft = shooter.getMainArm() == net.minecraft.world.entity.HumanoidArm.LEFT;
+            Vec3 forward = aimDirection.scale(1.15 + muzzleOffset);
+            Vec3 right = aimDirection.cross(new Vec3(0, 1, 0));
+            if (right.lengthSqr() < 1e-4) {
+                right = new Vec3(1, 0, 0);
+            } else {
+                right = right.normalize();
+            }
+            if (isLeft) right = right.scale(-1.0);
+            Vec3 muzzlePos = eyeOrigin.add(forward).add(right.scale(0.32)).add(0, -0.22, 0);
+
+            // 2. Target Convergence: Raycast from eye along crosshair aim direction so the projectile converges on the exact target
+            net.minecraft.world.phys.HitResult crosshairHit = serverLevel.clip(new net.minecraft.world.level.ClipContext(
+                    eyeOrigin,
+                    eyeOrigin.add(aimDirection.scale(96.0)),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE,
+                    shooter
+            ));
+            Vec3 targetPoint = crosshairHit.getLocation();
+            Vec3 convergedDirection = targetPoint.subtract(muzzlePos).normalize();
+            if (convergedDirection.lengthSqr() < 1e-4) {
+                convergedDirection = aimDirection;
+            }
+
             // Try launching directly from gun muzzle at bullet speed for projectile-type spells (supporting shotgun spread)
             boolean launched = SpellProjectileFactory.tryLaunchProjectile(
                     serverLevel,
                     shooter,
-                    event.getOrigin(),
-                    event.getDirection(),
+                    muzzlePos,
+                    convergedDirection,
                     spell,
                     effectiveLevel,
                     projectileCount,
@@ -296,7 +330,36 @@ public class GunplayEvents {
     @SubscribeEvent
     public void onItemTooltip(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
-        if (stack.isEmpty() || !(stack.getItem() instanceof GunItem)) return;
+        if (stack.isEmpty()) return;
+
+        // 1. Imbued Iron's Arms Bullet Tooltip
+        if (ReloadHelper.isSpellBullet(stack)) {
+            io.redspace.ironsspellbooks.api.spells.SpellData spellData = ReloadHelper.getSpellData(stack);
+            if (spellData != null && spellData.getSpell() != null) {
+                AbstractSpell spell = spellData.getSpell();
+                List<Component> tooltipComponents = event.getToolTip();
+
+                if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.incompatible_mobility")
+                            .withStyle(ChatFormatting.RED));
+                    return;
+                }
+
+                MutableComponent schoolComponent = Component.translatable(spell.getSchoolType().getDisplayName().getString())
+                        .withStyle(spell.getSchoolType().getDisplayName().getStyle());
+
+                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.school_info", schoolComponent)
+                        .withStyle(ChatFormatting.GRAY));
+                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.instant_fire")
+                        .withStyle(ChatFormatting.GOLD));
+                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.zero_mana")
+                        .withStyle(ChatFormatting.AQUA));
+            }
+            return;
+        }
+
+        // 2. Firearm Loaded Chamber Tooltip
+        if (!(stack.getItem() instanceof GunItem)) return;
 
         SpellChamberData chamber = stack.get(ModDataComponents.LOADED_SPELLS.get());
         if (chamber == null || chamber.isEmpty()) return;

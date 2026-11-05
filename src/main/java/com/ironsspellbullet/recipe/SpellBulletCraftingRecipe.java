@@ -1,6 +1,6 @@
 package com.ironsspellbullet.recipe;
 
-import com.ironsspellbullet.item.ModItems;
+import com.ironsspellbullet.event.ReloadHelper;
 import com.ironsspellbullet.spell.SpellBulletEffectHandler;
 import io.redspace.irons_artifice.registry.ItemRegistry;
 import io.redspace.ironsspellbooks.api.spells.ISpellContainer;
@@ -15,7 +15,7 @@ import net.minecraft.world.level.Level;
 
 /**
  * 3x3 Inscribing recipe:
- * 8x Bullet (surrounding) + 1x Scroll (center) -> 8x Spell Bullet
+ * 8x Normal Iron's Arms Bullet (surrounding) + 1x Scroll (center) -> 8x Imbued Iron's Arms Bullet
  */
 public class SpellBulletCraftingRecipe extends CustomRecipe {
 
@@ -29,9 +29,9 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
             return false;
         }
 
-        // Center slot (row 1, col 1 -> index 4) must be a scroll with a valid spell
+        // Center slot (row 1, col 1) must be a scroll (not a bullet) with a valid spell
         ItemStack centerStack = input.getItem(1, 1);
-        if (centerStack.isEmpty() || !ISpellContainer.isSpellContainer(centerStack)) {
+        if (centerStack.isEmpty() || centerStack.is(ItemRegistry.BULLET.get()) || !ISpellContainer.isSpellContainer(centerStack)) {
             return false;
         }
 
@@ -45,18 +45,18 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
             return false;
         }
 
-        // Strictly forbidden: Teleportation and mobility spells cannot be imbued onto spell bullets!
+        // Strictly forbidden: Teleportation and mobility spells cannot be imbued onto bullets!
         if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spellData.getSpell())) {
             return false;
         }
 
-        // All 8 surrounding slots must be standard bullets
+        // All 8 surrounding slots must be standard (un-imbued) Iron's Arms bullets
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
                 if (row == 1 && col == 1) continue; // skip center
 
                 ItemStack slotStack = input.getItem(col, row);
-                if (slotStack.isEmpty() || !slotStack.is(ItemRegistry.BULLET.get())) {
+                if (slotStack.isEmpty() || !slotStack.is(ItemRegistry.BULLET.get()) || ReloadHelper.hasSpell(slotStack)) {
                     return false;
                 }
             }
@@ -68,7 +68,7 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
     @Override
     public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
         ItemStack centerStack = input.getItem(1, 1);
-        if (centerStack.isEmpty() || !ISpellContainer.isSpellContainer(centerStack)) {
+        if (centerStack.isEmpty() || centerStack.is(ItemRegistry.BULLET.get()) || !ISpellContainer.isSpellContainer(centerStack)) {
             return ItemStack.EMPTY;
         }
 
@@ -82,16 +82,12 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
             return ItemStack.EMPTY;
         }
 
-        // Strictly forbidden: Teleportation and mobility spells cannot be imbued onto spell bullets!
         if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spellData.getSpell())) {
             return ItemStack.EMPTY;
         }
 
-        // Create 8x Spell Bullets imbued with the scroll's spell and level
-        ItemStack result = new ItemStack(ModItems.SPELL_BULLET.get(), 8);
-        ISpellContainer.createScrollContainer(spellData.getSpell(), spellData.getLevel(), result);
-
-        return result;
+        // Create 8x Iron's Arms Bullets imbued with the scroll's spell and level
+        return ReloadHelper.createSpellBullet(spellData.getSpell(), spellData.getLevel(), 8);
     }
 
     @Override
@@ -104,4 +100,3 @@ public class SpellBulletCraftingRecipe extends CustomRecipe {
         return ModRecipes.SPELL_BULLET_RECIPE_SERIALIZER.get();
     }
 }
-
