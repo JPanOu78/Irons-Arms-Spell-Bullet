@@ -85,12 +85,16 @@ import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
@@ -885,6 +889,83 @@ public class SpellBulletEffectHandler {
     // =========================================================================
     // 6. BLOOD SCHOOL (Authentic Iron's Spells Entities, Damage & Effects)
     // =========================================================================
+    public static boolean isSacrificeableSummon(LivingEntity entity, LivingEntity shooter) {
+        if (entity == null || entity.isRemoved() || entity == shooter) {
+            return false;
+        }
+        // 1. Authentic Iron's Spells IMagicSummon (SummonedSkeleton, SummonedZombie, SummonedVex, SummonedPolarBear, SummonedHorse, Scapegoat, etc.)
+        if (entity instanceof IMagicSummon) {
+            return true;
+        }
+        // 2. Tracked by Iron's Spells SummonManager
+        if (SummonManager.getOwner(entity) != null) {
+            return true;
+        }
+        // 3. Wisp entity
+        if (entity instanceof WispEntity) {
+            return true;
+        }
+        // 4. Entity type contains "summon" or "minion"
+        String typeKey = EntityType.getKey(entity.getType()).toString().toLowerCase();
+        if (typeKey.contains("summon") || typeKey.contains("minion")) {
+            return true;
+        }
+        // 5. Tags or persistent NBT data
+        if (entity.getTags().contains("summon") || entity.getTags().contains("summoned") || entity.getTags().contains("is_summon")) {
+            return true;
+        }
+        if (entity.getPersistentData().contains("SummonedBy") || entity.getPersistentData().contains("irons_spellbooks:summon")) {
+            return true;
+        }
+        return false;
+    }
+
+    private static void equipAuthenticUndead(ServerLevel level, LivingEntity shooter, AbstractSpell spell, int spellLevel, Mob undead) {
+        undead.finalizeSpawn(level, level.getCurrentDifficultyAt(undead.blockPosition()), MobSpawnType.MOB_SUMMONED, null);
+        float power = spell.getSpellPower(spellLevel, shooter);
+        ItemStack[] equipment = computeAuthenticUndeadEquipment(power, level.random);
+
+        undead.setItemSlot(EquipmentSlot.FEET, equipment[0]);
+        undead.setItemSlot(EquipmentSlot.LEGS, equipment[1]);
+        undead.setItemSlot(EquipmentSlot.CHEST, equipment[2]);
+        undead.setItemSlot(EquipmentSlot.HEAD, equipment[3]);
+
+        undead.setDropChance(EquipmentSlot.FEET, 0.0f);
+        undead.setDropChance(EquipmentSlot.LEGS, 0.0f);
+        undead.setDropChance(EquipmentSlot.CHEST, 0.0f);
+        undead.setDropChance(EquipmentSlot.HEAD, 0.0f);
+        undead.setDropChance(EquipmentSlot.MAINHAND, 0.0f);
+        undead.setDropChance(EquipmentSlot.OFFHAND, 0.0f);
+    }
+
+    private static ItemStack[] computeAuthenticUndeadEquipment(float power, net.minecraft.util.RandomSource random) {
+        Item[] leather = new Item[]{Items.LEATHER_BOOTS, Items.LEATHER_LEGGINGS, Items.LEATHER_CHESTPLATE, Items.LEATHER_HELMET};
+        Item[] chain = new Item[]{Items.CHAINMAIL_BOOTS, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_HELMET};
+        Item[] iron = new Item[]{Items.IRON_BOOTS, Items.IRON_LEGGINGS, Items.IRON_CHESTPLATE, Items.IRON_HELMET};
+
+        int min = 12;
+        int max = 33; // 6 * 3 + 15 (max level equipment ceiling in RaiseDeadSpell)
+        ItemStack[] equipment = new ItemStack[4];
+
+        for (int i = 0; i < 4; i++) {
+            float quality = Mth.clamp((power + random.nextIntBetweenInclusive(-3, 8) - min) / (float) (max - min), 0.0f, 0.95f);
+            if (random.nextDouble() < quality * quality) {
+                if (quality > 0.85f) {
+                    equipment[i] = new ItemStack(iron[i]);
+                } else if (quality > 0.65f) {
+                    equipment[i] = new ItemStack(chain[i]);
+                } else if (quality > 0.15f) {
+                    equipment[i] = new ItemStack(leather[i]);
+                } else {
+                    equipment[i] = ItemStack.EMPTY;
+                }
+            } else {
+                equipment[i] = ItemStack.EMPTY;
+            }
+        }
+        return equipment;
+    }
+
     private static void handleBloodImpact(ServerLevel level, Vec3 hitPos, Entity hitEntity, Entity bullet, LivingEntity shooter, AbstractSpell spell, String path, int spellLevel, float damage) {
         // 1. Ray of Siphoning (RayOfSiphoningSpell: getTickDamage + LifestealPercent 1.0f + BloodSiphonParticlesPacket)
         if (path.contains("ray_of_siphoning") || path.contains("siphon")) {
@@ -945,10 +1026,57 @@ public class SpellBulletEffectHandler {
             return;
         }
 
-        // 4. Sacrifice (SacrificeSpell: doSacrificeExplosion + getDamage + getRadius)
+        // 4. Sacrifice (SacrificeSpell: targets a summon, kills it instantly, and detonates an authentic blood explosion)
         if (path.contains("sacrifice")) {
-            float radius = SpellProjectileFactory.computeAuthenticRadius(spell, spellLevel, shooter, 5.0f);
-            SacrificeSpell.doSacrificeExplosion(level, spell.getDamageSource(bullet, shooter), damage, radius, hitPos);
+            LivingEntity targetSummon = null;
+
+            // Direct hit on a summon
+            if (hitEntity instanceof LivingEntity living && isSacrificeableSummon(living, shooter)) {
+                targetSummon = living;
+            }
+
+            // Fallback: search within 3.0 blocks around hitPos for nearest summon
+            if (targetSummon == null) {
+                List<LivingEntity> nearbySummons = level.getEntitiesOfClass(
+                        LivingEntity.class,
+                        new AABB(hitPos.x - 3.0, hitPos.y - 3.0, hitPos.z - 3.0, hitPos.x + 3.0, hitPos.y + 3.0, hitPos.z + 3.0),
+                        e -> isSacrificeableSummon(e, shooter)
+                );
+                if (!nearbySummons.isEmpty()) {
+                    nearbySummons.sort(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(hitPos)));
+                    targetSummon = nearbySummons.get(0);
+                }
+            }
+
+            if (targetSummon != null) {
+                float targetHp = targetSummon.getHealth();
+                float maxHp = Math.max(1.0f, targetSummon.getMaxHealth());
+                float bonusDamage = damage + targetHp * 0.5f;
+                float radius = 3.0f * (1.0f + 0.5f * (targetHp / maxHp));
+                Vec3 center = targetSummon.getBoundingBox().getCenter();
+
+                // Authentic Sacrifice explosion from the sacrificed target
+                SacrificeSpell.doSacrificeExplosion(level, spell.getDamageSource(targetSummon, shooter), bonusDamage, radius, center);
+
+                // Instantly kill and remove the sacrificed summon (authentic Iron's Spells Sacrifice removal)
+                targetSummon.remove(Entity.RemovalReason.KILLED);
+                targetSummon.kill();
+                if (targetSummon.isAlive()) {
+                    targetSummon.discard();
+                }
+            } else {
+                // Non-summon mob or empty block: strictly ZERO damage is applied!
+                // Subtle fizzle effect indicating invalid sacrifice target (authentic Iron's Spells failure behavior)
+                MagicManager.spawnParticles(level, ParticleTypes.SMOKE, hitPos.x, hitPos.y, hitPos.z, 8, 0.15, 0.15, 0.15, 0.05, false);
+                level.playSound(null, BlockPos.containing(hitPos), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.4f, 1.4f);
+                if (shooter instanceof ServerPlayer serverPlayer && hitEntity instanceof LivingEntity) {
+                    serverPlayer.sendSystemMessage(
+                            net.minecraft.network.chat.Component.translatable("ui.irons_spellbooks.sacrifice_target_failure")
+                                    .withStyle(net.minecraft.ChatFormatting.RED),
+                            true
+                    );
+                }
+            }
             return;
         }
 
@@ -962,7 +1090,7 @@ public class SpellBulletEffectHandler {
             return;
         }
 
-        // 6. Raise Dead (RaiseDeadSpell: SummonedZombie / SummonedSkeleton + getSummonCount, SummonManager, RecastInstance)
+        // 6. Raise Dead (RaiseDeadSpell: SummonedZombie / SummonedSkeleton + getSummonCount, SummonManager, RecastInstance, Authentic Equipment)
         if (path.contains("raise_dead")) {
             if (!checkCanSummon(shooter, spell)) {
                 return;
@@ -976,6 +1104,9 @@ public class SpellBulletEffectHandler {
                         ? new SummonedSkeleton(level, shooter, true)
                         : new SummonedZombie(level, shooter, true);
                 undead.moveTo(pos);
+                if (undead instanceof Mob mob) {
+                    equipAuthenticUndead(level, shooter, spell, spellLevel, mob);
+                }
                 level.addFreshEntity(undead);
                 undeadList.add(undead);
             }

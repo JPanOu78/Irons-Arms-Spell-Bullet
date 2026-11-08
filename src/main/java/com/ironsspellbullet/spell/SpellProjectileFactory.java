@@ -75,10 +75,31 @@ public class SpellProjectileFactory {
      * Checks if a spell is a heavy/explosive/ultimate spell that should fire
      * as a single concentrated Slug Core in shotguns rather than spawning 7-8 copies.
      */
-    public static boolean isHeavySpell(String path) {
+    public static boolean isSlugSpell(AbstractSpell spell) {
+        if (spell == null) return false;
+        return isSlugSpell(spell.getSpellResource().getPath().toLowerCase());
+    }
+
+    public static boolean isSlugSpell(String path) {
         return path.contains("magma") ||
                 path.contains("black_hole") ||
-                path.contains("comet");
+                path.contains("comet") ||
+                path.contains("fireball");
+    }
+
+    public static boolean isHeavySpell(String path) {
+        return isSlugSpell(path);
+    }
+
+    /**
+     * Checks if a spell is strictly allowed to be chambered, selected, or fired by shotguns.
+     * Shotguns exclusively accept Projectile spells (8x spread pellets) or Slug spells (1x heavy core).
+     * Pure impact, strike, summon, buff, and zone spells are barred from shotguns.
+     */
+    public static boolean isAllowedInShotgun(AbstractSpell spell) {
+        if (spell == null || SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) return false;
+        String path = spell.getSpellResource().getPath().toLowerCase();
+        return isSlugSpell(path) || isProjectileSpell(spell);
     }
 
     // =========================================================================
@@ -306,9 +327,8 @@ public class SpellProjectileFactory {
         float baseDamage = computeAuthenticSpellDamage(spell, spellLevel, shooter);
 
         int count = Math.max(1, projectileCount);
-        float damagePerPellet = (count > 1)
-                ? baseDamage / (float) Math.sqrt(count)
-                : baseDamage;
+        // Standard authentic damage for all projectiles (vanilla I-Frame ensures balanced single-target damage)
+        float damagePerPellet = baseDamage;
 
         boolean anyLaunched = false;
 

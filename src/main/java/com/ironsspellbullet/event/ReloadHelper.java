@@ -99,6 +99,21 @@ public class ReloadHelper {
     }
 
     /**
+     * Checks whether an item stack is a shotgun (fires > 1.5 projectiles per shot).
+     */
+    public static boolean isShotgun(ItemStack stack) {
+        if (stack != null && stack.getItem() instanceof GunItem gunItem) {
+            if (gunItem.getGun() != null && gunItem.getGun().baseProfile() != null) {
+                io.redspace.irons_artifice.data.Value countVal = gunItem.getGun().baseProfile().getOrDefault(io.redspace.irons_artifice.data.ShotComponents.PROJECTILE_COUNT);
+                if (countVal != null) {
+                    return countVal.compute() > 1.5;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Consumes ONLY the chosen bullet type and records it into the gun's chamber.
      */
     public static void smartConsumeAndRecord(Player player, ItemStack gunStack, int amount) {
@@ -107,6 +122,14 @@ public class ReloadHelper {
         List<SpellChamberData.SpellSlotEntry> consumedEntries = new ArrayList<>();
         int remaining = amount;
         String activeSelected = ActiveSpellBulletManager.getSelectedSpell(player.getUUID());
+
+        // For shotguns: verify that the chosen spell is strictly a Projectile or Slug spell
+        if (!ActiveSpellBulletManager.NORMAL_BULLET.equals(activeSelected) && isShotgun(gunStack)) {
+            AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(net.minecraft.resources.ResourceLocation.parse(activeSelected));
+            if (!com.ironsspellbullet.spell.SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                activeSelected = ActiveSpellBulletManager.NORMAL_BULLET;
+            }
+        }
 
         if (ActiveSpellBulletManager.NORMAL_BULLET.equals(activeSelected)) {
             // Consume ONLY normal bullets
@@ -265,6 +288,12 @@ public class ReloadHelper {
         } else {
             AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(net.minecraft.resources.ResourceLocation.parse(selectedBulletId));
             if (spell != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                if (isShotgun(gunStack) && !com.ironsspellbullet.spell.SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                    // Incompatible with shotguns: fallback to normal bullets
+                    gunStack.remove(ModDataComponents.LOADED_SPELLS.get());
+                    GunItem.setMagazine(gunStack, new MagazineContents(capacity));
+                    return;
+                }
                 int level = spell.getMaxLevel();
                 ItemStack offhand = player.getOffhandItem();
                 if (isSpellBullet(offhand) && matchesSpell(offhand, selectedBulletId)) {

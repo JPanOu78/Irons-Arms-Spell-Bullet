@@ -128,6 +128,13 @@ public class GunplayEvents {
             // Attach spell to shot profile
             profile.components().set(SHOT_SPELL, entry);
 
+            // Shotgun check: shotguns strictly accept ONLY Projectile or Slug spells!
+            int modProjCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
+            if (modProjCount > 1 && !SpellProjectileFactory.isAllowedInShotgun(entry.getSpell())) {
+                // Incompatible spell for shotgun: do not fire as spell
+                return;
+            }
+
             // Nullify firearm physical damage for spell bullets so only spell damage is dealt
             profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
 
@@ -193,12 +200,17 @@ public class GunplayEvents {
             int projectileCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
             float spread = io.redspace.irons_artifice.item.GunplayManager.getSpreadForEntity(profile, shooter);
 
-            // Shotgun balance: -3 Spell Level penalty for shotguns
-            int effectiveLevel = (projectileCount > 1) ? Math.max(1, level - 3) : level;
+            // True spell level preservation (Option 2: no artificial -3 level penalty)
+            int effectiveLevel = level;
 
-            // Shotgun Heavy Spell Handling:
-            // Heavy/Ultimate/AOE spells (Magma Bomb, Fireball, Black Hole, etc.) fire as 1 concentrated Slug Core instead of 7-8 copies!
-            if (projectileCount > 1 && SpellProjectileFactory.isHeavySpell(spell.getSpellResource().getPath().toLowerCase())) {
+            // Shotgun restriction: strictly only Projectile and Slug spells are permitted!
+            if (projectileCount > 1 && !SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                return;
+            }
+
+            // Shotgun Slug Spell Handling:
+            // Heavy/Ultimate/AOE spells (Magma Bomb, Fireball, Comet, Black Hole) fire as 1 concentrated Slug Core!
+            if (projectileCount > 1 && SpellProjectileFactory.isSlugSpell(spell)) {
                 projectileCount = 1;
                 spread = 0.0f;
             }
@@ -308,8 +320,7 @@ public class GunplayEvents {
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {
             LivingEntity shooter = bullet.getOwner() instanceof LivingEntity living ? living : null;
-            int projectileCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
-            int effectiveLevel = (projectileCount > 1) ? Math.max(1, entry.spellLevel() - 3) : entry.spellLevel();
+            int effectiveLevel = entry.spellLevel();
             io.redspace.ironsspellbooks.api.spells.SpellData spellData =
                     new io.redspace.ironsspellbooks.api.spells.SpellData(entry.getSpell(), effectiveLevel);
 
@@ -354,6 +365,18 @@ public class GunplayEvents {
                         .withStyle(ChatFormatting.GOLD));
                 tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.zero_mana")
                         .withStyle(ChatFormatting.AQUA));
+
+                // Shotgun compatibility indicator
+                if (SpellProjectileFactory.isSlugSpell(spell)) {
+                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.shotgun_slug")
+                            .withStyle(ChatFormatting.GOLD));
+                } else if (SpellProjectileFactory.isProjectileSpell(spell)) {
+                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.shotgun_pellet")
+                            .withStyle(ChatFormatting.AQUA));
+                } else {
+                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.shotgun_incompatible")
+                            .withStyle(ChatFormatting.DARK_GRAY));
+                }
             }
             return;
         }

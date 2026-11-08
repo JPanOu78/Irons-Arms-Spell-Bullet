@@ -185,19 +185,11 @@ public class ClientEvents {
 
         public static boolean isHoldingShotgun(Player player) {
             if (player == null) return false;
-            return isShotgunItem(player.getMainHandItem()) || isShotgunItem(player.getOffhandItem());
+            return ReloadHelper.isShotgun(player.getMainHandItem()) || ReloadHelper.isShotgun(player.getOffhandItem());
         }
 
         public static boolean isShotgunItem(ItemStack stack) {
-            if (stack != null && stack.getItem() instanceof GunItem gunItem) {
-                if (gunItem.getGun() != null && gunItem.getGun().baseProfile() != null) {
-                    Value countVal = gunItem.getGun().baseProfile().getOrDefault(io.redspace.irons_artifice.data.ShotComponents.PROJECTILE_COUNT);
-                    if (countVal != null) {
-                        return countVal.compute() > 1.5;
-                    }
-                }
-            }
-            return false;
+            return ReloadHelper.isShotgun(stack);
         }
 
         public static List<SpellWheelOption> getAvailableOptions(Player player) {
@@ -220,8 +212,8 @@ public class ClientEvents {
                     SpellData data = ReloadHelper.getSpellData(stack);
                     if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
                         AbstractSpell spell = data.getSpell();
-                        // For shotguns: only allow projectile and ray/beam spells! Exclude area zones, summons, foot trailing, etc.
-                        if (holdingShotgun && !SpellProjectileFactory.isProjectileSpell(spell)) {
+                        // For shotguns: strictly only allow Projectile spells and Slug spells!
+                        if (holdingShotgun && !SpellProjectileFactory.isAllowedInShotgun(spell)) {
                             continue;
                         }
                         String id = spell.getSpellResource().toString();
@@ -237,7 +229,7 @@ public class ClientEvents {
                 SpellData data = ReloadHelper.getSpellData(offhand);
                 if (data != null && data.getSpell() != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(data.getSpell())) {
                     AbstractSpell spell = data.getSpell();
-                    if (!holdingShotgun || SpellProjectileFactory.isProjectileSpell(spell)) {
+                    if (!holdingShotgun || SpellProjectileFactory.isAllowedInShotgun(spell)) {
                         String id = spell.getSpellResource().toString();
                         distinctSpells.putIfAbsent(id, data);
                         spellCounts.put(id, spellCounts.getOrDefault(id, 0) + (isCreative ? 999 : offhand.getCount()));
