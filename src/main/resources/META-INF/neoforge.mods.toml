@@ -7,7 +7,7 @@ config="irons_spell_bullet.mixins.json"
 
 [[mods]]
 modId="irons_spell_bullet"
-version="1.0.4"
+version="1.0.3"
 displayName="Iron's Arms Spell Bullet"
 description='''
 Combines the arcane arts with black powder firepower! Enables infusing and discharging spells through firearms from Iron's Arms 'n Artifice and Iron's Spells 'n Spellbooks.
