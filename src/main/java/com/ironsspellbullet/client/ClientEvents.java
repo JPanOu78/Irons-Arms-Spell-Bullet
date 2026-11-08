@@ -110,6 +110,20 @@ public class ClientEvents {
                 ItemStack off = mc.player.getOffhandItem();
                 boolean holdingGun = (main.getItem() instanceof GunItem) || (off.getItem() instanceof GunItem);
 
+                // Auto-fallback on weapon switch:
+                // If holding a shotgun while having an incompatible spell selected (e.g. switched from Rifle to Shotgun),
+                // immediately revert client selection to Normal Bullet and notify the server!
+                if (holdingGun && isHoldingShotgun(mc.player)) {
+                    String currentId = ActiveSpellBulletManager.getSelectedSpell(mc.player.getUUID());
+                    if (currentId != null && !currentId.isEmpty() && !ActiveSpellBulletManager.NORMAL_BULLET.equals(currentId)) {
+                        AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(net.minecraft.resources.ResourceLocation.parse(currentId));
+                        if (!SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                            ActiveSpellBulletManager.setSelectedSpell(mc.player.getUUID(), ActiveSpellBulletManager.NORMAL_BULLET);
+                            PacketDistributor.sendToServer(new ServerboundSelectSpellBulletPacket(ActiveSpellBulletManager.NORMAL_BULLET));
+                        }
+                    }
+                }
+
                 // If holding Alt while wielding a gun, show the Action Bar continuously
                 if (isAltActive && holdingGun) {
                     List<SpellWheelOption> available = getAvailableOptions(mc.player);

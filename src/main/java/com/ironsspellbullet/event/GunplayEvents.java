@@ -78,6 +78,14 @@ public class GunplayEvents {
             if (active != null && !active.isEmpty() && !ActiveSpellBulletManager.NORMAL_BULLET.equals(active)) {
                 AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(ResourceLocation.parse(active));
                 if (spell != null && !SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
+                    // Shotgun check: shotguns strictly accept ONLY Projectile or Slug spells!
+                    boolean isShotgun = ReloadHelper.isShotgun(profile) || ReloadHelper.isShotgun(gunStack);
+                    if (isShotgun && !SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                        // Incompatible with shotgun: do not attach spell, fire as normal firearm shot
+                        profile.components().remove(SHOT_SPELL);
+                        return;
+                    }
+
                     int spellLevel = spell.getMaxLevel();
                     ItemStack offhand = player.getOffhandItem();
                     if (ReloadHelper.isSpellBullet(offhand) && ReloadHelper.matchesSpell(offhand, active)) {
@@ -122,18 +130,20 @@ public class GunplayEvents {
         if (entry != null && entry.hasSpell()) {
             // Safety: Disallow mobility or teleport spells
             if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(entry.getSpell())) {
+                profile.components().remove(SHOT_SPELL);
                 return;
             }
-
-            // Attach spell to shot profile
-            profile.components().set(SHOT_SPELL, entry);
 
             // Shotgun check: shotguns strictly accept ONLY Projectile or Slug spells!
-            int modProjCount = Math.max(1, (int) Math.round(profile.value(ShotComponents.PROJECTILE_COUNT)));
-            if (modProjCount > 1 && !SpellProjectileFactory.isAllowedInShotgun(entry.getSpell())) {
-                // Incompatible spell for shotgun: do not fire as spell
+            boolean isShotgun = ReloadHelper.isShotgun(profile) || ReloadHelper.isShotgun(gunStack);
+            if (isShotgun && !SpellProjectileFactory.isAllowedInShotgun(entry.getSpell())) {
+                // Incompatible spell for shotgun: do not attach SHOT_SPELL, fire as normal bullet!
+                profile.components().remove(SHOT_SPELL);
                 return;
             }
+
+            // Attach spell to shot profile only if allowed
+            profile.components().set(SHOT_SPELL, entry);
 
             // Nullify firearm physical damage for spell bullets so only spell damage is dealt
             profile.components().set(ShotComponents.DAMAGE, Value.of(0.0));
@@ -204,7 +214,9 @@ public class GunplayEvents {
             int effectiveLevel = level;
 
             // Shotgun restriction: strictly only Projectile and Slug spells are permitted!
-            if (projectileCount > 1 && !SpellProjectileFactory.isAllowedInShotgun(spell)) {
+            boolean isShotgun = ReloadHelper.isShotgun(profile) || ReloadHelper.isShotgun(gunStack);
+            if (isShotgun && !SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                profile.components().remove(SHOT_SPELL);
                 return;
             }
 
@@ -319,6 +331,14 @@ public class GunplayEvents {
 
         SpellChamberData.SpellSlotEntry entry = profile.components().getOrDefault(SHOT_SPELL);
         if (entry != null && entry.hasSpell()) {
+            boolean isShotgun = ReloadHelper.isShotgun(profile) || (bullet.getProfile() != null && ReloadHelper.isShotgun(bullet.getProfile()));
+            if (isShotgun && !SpellProjectileFactory.isAllowedInShotgun(entry.getSpell())) {
+                // Safeguard: Shotgun pellets must NEVER trigger impact/strike/summon spells!
+                event.setCanceled(true);
+                bullet.discard();
+                return;
+            }
+
             LivingEntity shooter = bullet.getOwner() instanceof LivingEntity living ? living : null;
             int effectiveLevel = entry.spellLevel();
             io.redspace.ironsspellbooks.api.spells.SpellData spellData =
@@ -335,6 +355,29 @@ public class GunplayEvents {
             // Cancel the normal bullet impact so zero firearm physical damage is applied
             event.setCanceled(true);
             bullet.discard();
+        }
+    }
+
+    @SubscribeEvent
+    public void onLivingEquipmentChange(net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            net.minecraft.world.entity.EquipmentSlot slot = event.getSlot();
+            if (slot == net.minecraft.world.entity.EquipmentSlot.MAINHAND || slot == net.minecraft.world.entity.EquipmentSlot.OFFHAND) {
+                ItemStack newItem = event.getTo();
+                if (ReloadHelper.isShotgun(newItem)) {
+                    String active = ActiveSpellBulletManager.getSelectedSpell(player.getUUID());
+                    if (active != null && !active.isEmpty() && !ActiveSpellBulletManager.NORMAL_BULLET.equals(active)) {
+                        AbstractSpell spell = io.redspace.ironsspellbooks.api.registry.SpellRegistry.getSpell(ResourceLocation.parse(active));
+                        if (!SpellProjectileFactory.isAllowedInShotgun(spell)) {
+                            // Automatically reset active bullet selection to Normal Bullet when switching to a shotgun!
+                            ActiveSpellBulletManager.setSelectedSpell(player.getUUID(), ActiveSpellBulletManager.NORMAL_BULLET);
+                            if (player.hasInfiniteMaterials()) {
+                                ReloadHelper.setCreativeChamber(player, newItem, ActiveSpellBulletManager.NORMAL_BULLET);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

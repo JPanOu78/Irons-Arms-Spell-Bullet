@@ -114,6 +114,18 @@ public class ReloadHelper {
     }
 
     /**
+     * Checks whether a ShotProfile belongs to a shotgun (item stack is shotgun or projectile count > 1.5).
+     */
+    public static boolean isShotgun(io.redspace.irons_artifice.gun.ShotProfile profile) {
+        if (profile == null) return false;
+        if (profile.itemStack() != null && isShotgun(profile.itemStack())) return true;
+        if (profile.components().has(io.redspace.irons_artifice.data.ShotComponents.PROJECTILE_COUNT)) {
+            return profile.value(io.redspace.irons_artifice.data.ShotComponents.PROJECTILE_COUNT) > 1.5;
+        }
+        return false;
+    }
+
+    /**
      * Consumes ONLY the chosen bullet type and records it into the gun's chamber.
      */
     public static void smartConsumeAndRecord(Player player, ItemStack gunStack, int amount) {
@@ -199,6 +211,17 @@ public class ReloadHelper {
 
         SpellChamberData chamber = gunStack.getOrDefault(ModDataComponents.LOADED_SPELLS.get(), SpellChamberData.EMPTY);
         List<SpellChamberData.SpellSlotEntry> entries = chamber.loadedSpells();
+
+        // If gun is a shotgun, verify no incompatible spells are loaded
+        if (isShotgun(gunStack)) {
+            for (SpellChamberData.SpellSlotEntry entry : entries) {
+                if (entry != null && entry.hasSpell()) {
+                    if (!com.ironsspellbullet.spell.SpellProjectileFactory.isAllowedInShotgun(entry.getSpell())) {
+                        return false;
+                    }
+                }
+            }
+        }
 
         if (ActiveSpellBulletManager.NORMAL_BULLET.equals(activeSelection)) {
             for (SpellChamberData.SpellSlotEntry entry : entries) {
