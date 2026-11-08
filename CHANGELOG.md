@@ -14,6 +14,8 @@ Changes
 
 Fixes
 
+• Fixed Weapon Swapping Bug: Swapping between firearms (e.g. from rifle/pistol with Impact spells to a shotgun) now immediately resets incompatible active spell selection to normal bullets on both client and server, preventing shotguns from erroneously firing Impact/disallowed spells
+• Fixed Creative Mode bypass in shot composition where active spell selection was attached without checking shotgun compatibility
 • Fixed Sacrifice spell bullet passing through friendly summons on direct hit
 • Fixed Sacrifice spell bullet detonating blood explosion properly when hitting owned summons
 • Added authentic weapon and armor equipment for Raise Dead summons based on spell level
