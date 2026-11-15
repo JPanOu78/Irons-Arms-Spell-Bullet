@@ -31,7 +31,14 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
+import io.redspace.ironsspellbooks.api.util.Utils;
 import java.lang.reflect.Method;
+import io.redspace.ironsspellbooks.entity.spells.firefly_swarm.FireflySwarmProjectile;
+import io.redspace.ironsspellbooks.entity.spells.wisp.WispEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import java.util.List;
 
 public class SpellProjectileFactory {
 
@@ -44,6 +51,9 @@ public class SpellProjectileFactory {
         if (spell == null || SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) return false;
         String path = spell.getSpellResource().getPath().toLowerCase();
         if (InstantBeamHandler.isBeamSpell(path)) {
+            return true;
+        }
+        if (com.ironsspellbullet.compat.addon.AddonSpellBulletHandler.isAddonProjectileSpell(path)) {
             return true;
         }
         return path.contains("fireball") ||
@@ -68,6 +78,8 @@ public class SpellProjectileFactory {
                 path.contains("acid_orb") ||
                 path.contains("poison_arrow") ||
                 path.contains("guiding_bolt") ||
+                path.contains("wisp") ||
+                path.contains("firefly_swarm") ||
                 path.contains("lob_creeper");
     }
 
@@ -84,7 +96,8 @@ public class SpellProjectileFactory {
         return path.contains("magma") ||
                 path.contains("black_hole") ||
                 path.contains("comet") ||
-                path.contains("fireball");
+                path.contains("fireball") ||
+                com.ironsspellbullet.compat.addon.AddonSpellBulletHandler.isAddonSlugSpell(path);
     }
 
     public static boolean isHeavySpell(String path) {
@@ -155,12 +168,23 @@ public class SpellProjectileFactory {
      */
     public static float computeAuthenticSpellDamage(AbstractSpell spell, int spellLevel, LivingEntity shooter) {
         if (spell == null) return 0.0f;
+        // 1. Standard Iron's Spells: getDamage(int spellLevel, LivingEntity shooter)
         Float val = invokeSpellFloat(spell, "getDamage", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
         if (val != null) return val;
 
+        // 2. Addon Spells (e.g. TremorSpikeSpell, FissureSpell): getDamage(LivingEntity shooter, int spellLevel)
+        val = invokeSpellFloat(spell, "getDamage", new Class<?>[]{LivingEntity.class, int.class}, shooter, spellLevel);
+        if (val != null) return val;
+
+        // 3. Single-param: getDamage(int spellLevel)
+        val = invokeSpellFloat(spell, "getDamage", new Class<?>[]{int.class}, spellLevel);
+        if (val != null) return val;
+
+        // 4. Arrow damage
         val = invokeSpellFloat(spell, "getArrowDamage", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
         if (val != null) return val;
 
+        // 5. Tick damage
         val = invokeSpellFloat(spell, "getTickDamage", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
         if (val != null) return val;
 
@@ -186,18 +210,26 @@ public class SpellProjectileFactory {
      */
     public static float computeAuthenticRadius(AbstractSpell spell, int spellLevel, LivingEntity shooter, float fallback) {
         if (spell == null) return fallback;
-        Float val = invokeSpellFloat(spell, "getRadius", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
-        if (val != null) return val;
-
-        val = invokeSpellFloat(spell, "getRadius", new Class<?>[]{LivingEntity.class}, shooter);
-        if (val != null) return val;
-
-        val = invokeSpellFloat(spell, "getSwirlRadius", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
-        if (val != null) return val;
-
-        val = invokeSpellFloat(spell, "getLashRadius", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
-        if (val != null) return val;
-
+        String[] radiusMethodNames = {
+                "getRadius",
+                "getEffectRadius",
+                "getShockwaveRadius",
+                "getSwirlRadius",
+                "getLashRadius",
+                "getBlastRadius"
+        };
+        for (String name : radiusMethodNames) {
+            Float val = invokeSpellFloat(spell, name, new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
+            if (val != null) return val;
+            val = invokeSpellFloat(spell, name, new Class<?>[]{LivingEntity.class, int.class}, shooter, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellFloat(spell, name, new Class<?>[]{int.class}, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellFloat(spell, name, new Class<?>[]{LivingEntity.class}, shooter);
+            if (val != null) return val;
+            val = invokeSpellFloat(spell, name, new Class<?>[]{});
+            if (val != null) return val;
+        }
         return fallback;
     }
 
@@ -217,6 +249,14 @@ public class SpellProjectileFactory {
         for (String name : methodNames) {
             Integer val = invokeSpellInt(spell, name, new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
             if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{LivingEntity.class, int.class}, shooter, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{int.class}, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{LivingEntity.class}, shooter);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{});
+            if (val != null) return val;
         }
         return fallback;
     }
@@ -228,6 +268,10 @@ public class SpellProjectileFactory {
         if (spell == null) return 0.0f;
         Float val = invokeSpellFloat(spell, "getHealing", new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
         if (val != null) return val;
+        val = invokeSpellFloat(spell, "getHealing", new Class<?>[]{LivingEntity.class, int.class}, shooter, spellLevel);
+        if (val != null) return val;
+        val = invokeSpellFloat(spell, "getHealing", new Class<?>[]{int.class}, spellLevel);
+        if (val != null) return val;
 
         return spell.getSpellPower(spellLevel, shooter);
     }
@@ -237,19 +281,26 @@ public class SpellProjectileFactory {
      */
     public static int computeAuthenticAmplifier(AbstractSpell spell, int spellLevel, LivingEntity shooter, int fallback) {
         if (spell == null) return fallback;
-        String[] twoArgMethods = {
+        String[] methodNames = {
                 "getAmplifier",
                 "getAmplifierForLevel",
+                "getMaxAegisAmplifier",
+                "getErodeAmplifier",
                 "getRendAmplifier",
                 "getSlownessAmplifier"
         };
-        for (String name : twoArgMethods) {
+        for (String name : methodNames) {
             Integer val = invokeSpellInt(spell, name, new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
             if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{LivingEntity.class, int.class}, shooter, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{int.class}, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{LivingEntity.class}, shooter);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{});
+            if (val != null) return val;
         }
-        Integer val = invokeSpellInt(spell, "getAmplifierForLevel", new Class<?>[]{int.class}, spellLevel);
-        if (val != null) return val;
-
         return fallback;
     }
 
@@ -258,23 +309,23 @@ public class SpellProjectileFactory {
      */
     public static int computeAuthenticCount(AbstractSpell spell, int spellLevel, LivingEntity shooter, int fallback) {
         if (spell == null) return fallback;
-        String[] twoArgMethods = {
+        String[] methodNames = {
                 "getCount",
                 "getSummonCount",
                 "getRings",
+                "getRingCount",
                 "getRecastCount"
         };
-        for (String name : twoArgMethods) {
+        for (String name : methodNames) {
             Integer val = invokeSpellInt(spell, name, new Class<?>[]{int.class, LivingEntity.class}, spellLevel, shooter);
             if (val != null) return val;
-        }
-        String[] oneArgMethods = {
-                "getCount",
-                "getSummonCount",
-                "getRings"
-        };
-        for (String name : oneArgMethods) {
-            Integer val = invokeSpellInt(spell, name, new Class<?>[]{int.class}, spellLevel);
+            val = invokeSpellInt(spell, name, new Class<?>[]{LivingEntity.class, int.class}, shooter, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{int.class}, spellLevel);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{LivingEntity.class}, shooter);
+            if (val != null) return val;
+            val = invokeSpellInt(spell, name, new Class<?>[]{});
             if (val != null) return val;
         }
         return fallback;
@@ -368,6 +419,11 @@ public class SpellProjectileFactory {
         // 1. Instant Beam / Ray / Cone Spells (Fired directly from muzzle using Iron's Spells formulas)
         if (InstantBeamHandler.isBeamSpell(path)) {
             return InstantBeamHandler.fireBeam(level, shooter, origin, direction, spell, spellLevel, damage, totalPellets > 1 ? 0.05f : 0.0f);
+        }
+
+        // 1b. GTBC Addon Projectile Spells (Geomancy Plus & GTBC Spellbooks)
+        if (com.ironsspellbullet.compat.addon.AddonSpellBulletHandler.tryLaunchAddonProjectile(level, shooter, origin, direction, spell, path, spellLevel, damage, totalPellets, isFirstPellet)) {
+            return true;
         }
 
         // 2. Iron's Spells Magic Projectiles configured with authentic spell parameters
@@ -477,6 +533,30 @@ public class SpellProjectileFactory {
             projectile = arrow;
         } else if (path.contains("guiding_bolt")) {
             projectile = new GuidingBoltProjectile(level, shooter);
+        } else if (path.contains("wisp")) {
+            WispEntity wisp = new WispEntity(level, shooter, damage);
+            Vec3 normDir = direction.lengthSqr() > 1e-4 ? direction.normalize() : new Vec3(0, 0, 1);
+            Vec3 spawnPos = origin.add(normDir.scale(0.5));
+            wisp.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+
+            LivingEntity target = findHomingTarget(level, shooter, origin, normDir, 48.0);
+            if (target != null) {
+                wisp.setTarget(target);
+            }
+            level.addFreshEntity(wisp);
+            return true;
+        } else if (path.contains("firefly_swarm")) {
+            Vec3 normDir = direction.lengthSqr() > 1e-4 ? direction.normalize() : new Vec3(0, 0, 1);
+            Vec3 spawnPos = origin.add(normDir.scale(0.5));
+
+            LivingEntity target = findHomingTarget(level, shooter, origin, normDir, 48.0);
+            FireflySwarmProjectile swarm = new FireflySwarmProjectile(level, shooter, target, damage);
+            swarm.moveTo(spawnPos);
+            if (target != null) {
+                swarm.setTarget(target);
+            }
+            level.addFreshEntity(swarm);
+            return true;
         } else if (path.contains("lob_creeper")) {
             float speed = (float) (0.85 + spellLevel * 0.05);
             CreeperHeadProjectile creeper = new CreeperHeadProjectile(shooter, level, speed, damage);
@@ -500,5 +580,42 @@ public class SpellProjectileFactory {
         }
 
         return false;
+    }
+
+    /**
+     * Finds a valid hostile/neutral target in front of the gun crosshair using:
+     * 1. Direct raycast up to maxDistance blocks
+     * 2. Cone search (~60 degrees) with line-of-sight check
+     */
+    public static LivingEntity findHomingTarget(ServerLevel level, LivingEntity shooter, Vec3 origin, Vec3 direction, double maxDistance) {
+        if (shooter == null || level == null) return null;
+        Vec3 normDir = direction.lengthSqr() > 1e-4 ? direction.normalize() : new Vec3(0, 0, 1);
+        Vec3 traceEnd = origin.add(normDir.scale(maxDistance));
+
+        // 1. Direct raycast
+        HitResult rayResult = Utils.raycastForEntity(level, shooter, origin, traceEnd, true, 0.65f,
+                e -> e instanceof LivingEntity target && !DamageSources.isFriendlyFireBetween(shooter, target)
+                        && !target.isAlliedTo(shooter));
+        if (rayResult instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity livingTarget) {
+            return livingTarget;
+        }
+
+        // 2. Broad cone search in front of muzzle
+        AABB searchBox = shooter.getBoundingBox().inflate(Math.min(maxDistance, 36.0));
+        List<LivingEntity> nearby = level.getEntitiesOfClass(LivingEntity.class, searchBox,
+                e -> e != shooter && e.isAlive() && !(e instanceof net.minecraft.world.entity.player.Player)
+                        && !DamageSources.isFriendlyFireBetween(shooter, e)
+                        && !e.isAlliedTo(shooter));
+        double bestDot = 0.5; // Within ~60-degree cone
+        LivingEntity homingTarget = null;
+        for (LivingEntity candidate : nearby) {
+            Vec3 toTarget = candidate.position().add(0, candidate.getEyeHeight() * 0.5, 0).subtract(origin).normalize();
+            double dot = normDir.dot(toTarget);
+            if (dot > bestDot && Utils.hasLineOfSight(level, origin, candidate.position().add(0, candidate.getEyeHeight() * 0.5, 0), false)) {
+                bestDot = dot;
+                homingTarget = candidate;
+            }
+        }
+        return homingTarget;
     }
 }

@@ -4,6 +4,7 @@
   "tooltip.irons_spell_bullet.school_info": "Magic School: %s",
   "tooltip.irons_spell_bullet.instant_fire": "⚡ Instant Arcane Release on Impact",
   "tooltip.irons_spell_bullet.zero_mana": "✦ 0 Mana Cost (Ammo-Powered)",
+  "tooltip.irons_spell_bullet.spell_damage": "⚔ Spell Damage: %s",
   "tooltip.irons_spell_bullet.shotgun_slug": "✦ Shotgun Mode: Heavy Slug Core (1x Concentrated Blast)",
   "tooltip.irons_spell_bullet.shotgun_pellet": "✦ Shotgun Mode: Pellets Spread (8x Magic Projectiles)",
   "tooltip.irons_spell_bullet.shotgun_incompatible": "⚠ Incompatible with Shotguns (Sidearms & Rifles only)",
@@ -16,5 +17,6 @@
   "gui.irons_spell_bullet.select_title": "✦ Arcane Bullet Quick Select",
   "gui.irons_spell_bullet.normal_bullet": "Normal Bullet",
   "gui.irons_spell_bullet.available_count": "In Inventory: %s",
-  "gui.irons_spell_bullet.reload_hint": "[R] Reload to Chamber"
+  "gui.irons_spell_bullet.reload_hint": "[R] Reload to Chamber",
+  "ui.irons_spell_bullet.dead_king_already_summoned": "✖ A Dead King is already summoned nearby!"
 }

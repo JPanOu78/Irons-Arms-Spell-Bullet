@@ -33,6 +33,10 @@ public record ServerboundSelectSpellBulletPacket(String spellId) implements Cust
     public static void handle(ServerboundSelectSpellBulletPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
+                // Ammo switching is locked while a firearm Solar Beam is still channeling
+                if (com.ironsspellbullet.event.SolarBeamLockManager.isLocked(player)) {
+                    return;
+                }
                 ActiveSpellBulletManager.setSelectedSpell(player.getUUID(), packet.spellId());
 
                 // Immediately terminate any ongoing continuous/cone/spray effects when ammo is switched

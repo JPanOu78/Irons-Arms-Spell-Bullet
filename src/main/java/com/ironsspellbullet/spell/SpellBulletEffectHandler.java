@@ -152,13 +152,22 @@ public class SpellBulletEffectHandler {
                 p.contains("blood_step") ||
                 p.contains("burning_dash") ||
                 p.contains("dash") ||
+                p.contains("spectral_blink") ||
+                p.contains("blink") ||
                 p.contains("charge") ||
                 p.contains("ascension") ||
                 p.contains("recall") ||
                 p.contains("portal") ||
                 p.contains("shadow_slash") ||
                 p.contains("pocket_dimension") ||
-                p.contains("volt_strike");
+                p.contains("volt_strike") ||
+                p.contains("seismic_surf") ||
+                p.contains("seismic_ride") ||
+                p.contains("tremor_step") ||
+                p.contains("telekinesis") ||
+                p.contains("reversal") ||
+                p.contains("astral_sense") ||
+                p.contains("lingering");
     }
 
     /**
@@ -216,6 +225,11 @@ public class SpellBulletEffectHandler {
 
         // Compute authentic spell damage directly from Iron's Spells' own methods
         float damage = SpellProjectileFactory.computeAuthenticSpellDamage(spell, spellLevel, shooter);
+
+        // Check GTBC Addon Spells first (Geomancy Plus & GTBC Spellbooks)
+        if (com.ironsspellbullet.compat.addon.AddonSpellBulletHandler.handleImpact(serverLevel, hitPos, hitEntity, bullet, shooter, spell, spellLevel, damage, hitResult)) {
+            return;
+        }
 
         // Execute school-specific authentic Iron's Spells behavior
         if (school.equals(SchoolRegistry.FIRE.get())) {

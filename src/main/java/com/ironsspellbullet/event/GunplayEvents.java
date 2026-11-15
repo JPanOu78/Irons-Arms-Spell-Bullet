@@ -32,7 +32,6 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.LinkedHashMap;
@@ -378,81 +377,6 @@ public class GunplayEvents {
                     }
                 }
             }
-        }
-    }
-
-    @SubscribeEvent
-    public void onItemTooltip(ItemTooltipEvent event) {
-        ItemStack stack = event.getItemStack();
-        if (stack.isEmpty()) return;
-
-        // 1. Imbued Iron's Arms Bullet Tooltip
-        if (ReloadHelper.isSpellBullet(stack)) {
-            io.redspace.ironsspellbooks.api.spells.SpellData spellData = ReloadHelper.getSpellData(stack);
-            if (spellData != null && spellData.getSpell() != null) {
-                AbstractSpell spell = spellData.getSpell();
-                List<Component> tooltipComponents = event.getToolTip();
-
-                if (SpellBulletEffectHandler.isMobilityOrTeleportSpell(spell)) {
-                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.incompatible_mobility")
-                            .withStyle(ChatFormatting.RED));
-                    return;
-                }
-
-                MutableComponent schoolComponent = Component.translatable(spell.getSchoolType().getDisplayName().getString())
-                        .withStyle(spell.getSchoolType().getDisplayName().getStyle());
-
-                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.school_info", schoolComponent)
-                        .withStyle(ChatFormatting.GRAY));
-                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.instant_fire")
-                        .withStyle(ChatFormatting.GOLD));
-                tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.zero_mana")
-                        .withStyle(ChatFormatting.AQUA));
-
-                // Shotgun compatibility indicator
-                if (SpellProjectileFactory.isSlugSpell(spell)) {
-                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.shotgun_slug")
-                            .withStyle(ChatFormatting.GOLD));
-                } else if (SpellProjectileFactory.isProjectileSpell(spell)) {
-                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.shotgun_pellet")
-                            .withStyle(ChatFormatting.AQUA));
-                } else {
-                    tooltipComponents.add(Component.translatable("tooltip.irons_spell_bullet.shotgun_incompatible")
-                            .withStyle(ChatFormatting.DARK_GRAY));
-                }
-            }
-            return;
-        }
-
-        // 2. Firearm Loaded Chamber Tooltip
-        if (!(stack.getItem() instanceof GunItem)) return;
-
-        SpellChamberData chamber = stack.get(ModDataComponents.LOADED_SPELLS.get());
-        if (chamber == null || chamber.isEmpty()) return;
-
-        List<Component> tooltips = event.getToolTip();
-        tooltips.add(Component.translatable("tooltip.irons_spell_bullet.chamber_header")
-                .withStyle(ChatFormatting.GOLD));
-
-        // Group consecutive/identical spells for clean display
-        Map<String, Integer> spellCounts = new LinkedHashMap<>();
-        for (SpellChamberData.SpellSlotEntry entry : chamber.loadedSpells()) {
-            if (entry.hasSpell()) {
-                AbstractSpell spell = entry.getSpell();
-                String displayName = spell != null ? spell.getDisplayName(event.getEntity()).getString() + " " + entry.spellLevel() : entry.spellId();
-                spellCounts.put(displayName, spellCounts.getOrDefault(displayName, 0) + 1);
-            } else {
-                spellCounts.put("Normal Bullet", spellCounts.getOrDefault("Normal Bullet", 0) + 1);
-            }
-        }
-
-        for (Map.Entry<String, Integer> entry : spellCounts.entrySet()) {
-            MutableComponent line = Component.literal(" • " + entry.getKey());
-            if (entry.getValue() > 1) {
-                line.append(Component.literal(" (x" + entry.getValue() + ")").withStyle(ChatFormatting.DARK_GRAY));
-            }
-            line.withStyle(ChatFormatting.AQUA);
-            tooltips.add(line);
         }
     }
 }

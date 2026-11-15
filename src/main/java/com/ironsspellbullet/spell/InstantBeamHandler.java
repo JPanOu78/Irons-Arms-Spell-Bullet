@@ -1,6 +1,8 @@
 package com.ironsspellbullet.spell;
 
 import com.ironsspellbullet.event.ActiveSpellEntityManager;
+import io.redspace.ironsspellbooks.api.util.CameraShakeData;
+import io.redspace.ironsspellbooks.api.util.CameraShakeManager;
 import io.redspace.ironsspellbooks.api.spells.AbstractSpell;
 import io.redspace.ironsspellbooks.api.util.RaycastBuilder;
 import io.redspace.ironsspellbooks.api.util.Utils;
@@ -22,7 +24,10 @@ import io.redspace.ironsspellbooks.registries.SoundRegistry;
 import io.redspace.ironsspellbooks.util.ParticleHelper;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -62,7 +67,8 @@ public class InstantBeamHandler {
                 p.contains("cone_of_cold") ||
                 p.contains("fire_breath") ||
                 p.contains("dragon_breath") ||
-                p.contains("poison_breath");
+                p.contains("poison_breath") ||
+                p.contains("shatterpoint");
     }
 
     /**
@@ -80,6 +86,11 @@ public class InstantBeamHandler {
     ) {
         if (spell == null) return false;
         String path = spell.getSpellResource().getPath().toLowerCase();
+
+        // Shatterpoint (GTBC Spellbooks: Instant raycast freeze beam + frost explosion)
+        if (path.contains("shatterpoint")) {
+            return fireShatterpoint(level, shooter, origin, direction, spell, spellLevel, baseDamage);
+        }
 
         // 1. Ray of Frost (Iron's Spells: RayOfFrostVisualEntity + getRange + getDamage + getFreezeTime)
         if (path.contains("ray_of_frost")) {
@@ -282,7 +293,7 @@ public class InstantBeamHandler {
         return true;
     }
 
-    private static boolean fireEldritchBlast(
+    public static boolean fireEldritchBlast(
             ServerLevel level,
             LivingEntity shooter,
             Vec3 origin,
@@ -291,7 +302,35 @@ public class InstantBeamHandler {
             int spellLevel,
             float damage
     ) {
-        Vec3 eyePos = (shooter != null) ? shooter.getEyePosition() : origin;
+        // Fire 1st blast immediately from gun muzzle origin!
+        fireSingleEldritchBlast(level, shooter, origin, direction, spell, spellLevel, damage);
+
+        // Queue remaining rapid-fire blasts sequentially like Flaming Barrage
+        if (shooter instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            int totalCount = 2 + spellLevel;
+            try {
+                java.lang.reflect.Method m = spell.getClass().getMethod("getRecastCount", int.class, LivingEntity.class);
+                totalCount = (Integer) m.invoke(spell, spellLevel, shooter);
+            } catch (Throwable ignored) {}
+
+            int remaining = Math.max(0, totalCount - 1);
+            if (remaining > 0) {
+                ActiveSpellEntityManager.queueEldritchBlastBurst(level, serverPlayer, spell, damage, spellLevel, remaining);
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean fireSingleEldritchBlast(
+            ServerLevel level,
+            LivingEntity shooter,
+            Vec3 origin,
+            Vec3 direction,
+            AbstractSpell spell,
+            int spellLevel,
+            float damage
+    ) {
         float range = SpellProjectileFactory.computeAuthenticRange(spell, spellLevel, shooter, 30.0f);
         Vec3 targetPos = origin.add(direction.scale(range));
         HitResult hitResult = RaycastBuilder.begin(level, shooter)
@@ -304,7 +343,8 @@ public class InstantBeamHandler {
         Vec3 hitPos = hitResult.getLocation();
         Entity hitEntity = (hitResult.getType() == HitResult.Type.ENTITY) ? ((EntityHitResult) hitResult).getEntity() : null;
 
-        EldritchBlastVisualEntity blast = new EldritchBlastVisualEntity(level, eyePos, hitPos, shooter);
+        // Visual beam emerges directly from gun muzzle origin to target hit position!
+        EldritchBlastVisualEntity blast = new EldritchBlastVisualEntity(level, origin, hitPos, shooter);
         level.addFreshEntity(blast);
         ActiveSpellEntityManager.registerEntity(shooter, blast, 15);
 
@@ -345,6 +385,78 @@ public class InstantBeamHandler {
             Vec3 knockback = direction.normalize().scale(0.75).add(0, 0.25, 0);
             target.setDeltaMovement(target.getDeltaMovement().add(knockback));
             target.hurtMarked = true;
+        }
+
+        return true;
+    }
+
+    private static boolean fireShatterpoint(
+            ServerLevel level,
+            LivingEntity shooter,
+            Vec3 origin,
+            Vec3 direction,
+            AbstractSpell spell,
+            int spellLevel,
+            float damage
+    ) {
+        float range = SpellProjectileFactory.computeAuthenticRange(spell, spellLevel, shooter, 30.0f);
+        Vec3 normDir = direction.lengthSqr() > 1e-4 ? direction.normalize() : new Vec3(0, 0, 1);
+        Vec3 endPos = origin.add(normDir.scale(range));
+
+        HitResult hitResult = RaycastBuilder.begin(level, shooter)
+                .start(origin)
+                .end(endPos)
+                .checkForBlocks(true)
+                .bbInflation(0.35f)
+                .build();
+
+        Vec3 hitPos = hitResult.getLocation();
+        double hitDist = origin.distanceTo(hitPos);
+
+        // Particle stream along the beam line using GTBC's frost blast / snowflake particle
+        ParticleOptions frostParticle = ParticleHelper.SNOWFLAKE;
+        net.minecraft.core.particles.ParticleType<?> customFrost = BuiltInRegistries.PARTICLE_TYPE.get(
+                ResourceLocation.fromNamespaceAndPath("gametechbcs_spellbooks", "frost_blast"));
+        if (customFrost instanceof ParticleOptions cfo) {
+            frostParticle = cfo;
+        }
+
+        for (double d = 0.5; d <= hitDist; d += 0.5) {
+            Vec3 pt = origin.add(normDir.scale(d));
+            MagicManager.spawnParticles(level, frostParticle, pt.x, pt.y, pt.z, 1, 0, 0, 0, 0, false);
+        }
+
+        // Camera shake at shooter & hit
+        CameraShakeManager.addCameraShake(new CameraShakeData(level, 10, origin, 25.0f));
+
+        // Damage target or splash AOE at hitPos
+        Entity hitEntity = (hitResult.getType() == HitResult.Type.ENTITY) ? ((EntityHitResult) hitResult).getEntity() : null;
+        if (hitEntity instanceof LivingEntity target) {
+            DamageSource src = getAuthenticDamageSource(level, shooter, shooter, spell);
+            DamageSources.applyDamage(target, damage, src);
+            target.setTicksFrozen(200);
+
+            // AOE splash to nearby entities within 3.0 blocks
+            AABB splashBox = target.getBoundingBox().inflate(3.0);
+            List<LivingEntity> splashTargets = level.getEntitiesOfClass(LivingEntity.class, splashBox,
+                    e -> e != shooter && e != target && e.isAlive() && !e.isAlliedTo(shooter));
+            for (LivingEntity splashTarget : splashTargets) {
+                DamageSources.applyDamage(splashTarget, damage, src);
+                splashTarget.setTicksFrozen(200);
+                MagicManager.spawnParticles(level, ParticleHelper.SNOWFLAKE, splashTarget.getX(), splashTarget.getY() + 0.5, splashTarget.getZ(), 40, 0.3, 0.3, 0.3, 0.1, false);
+            }
+        }
+
+        // Snow dust burst at hit point
+        MagicManager.spawnParticles(level, ParticleHelper.SNOW_DUST, hitPos.x, hitPos.y, hitPos.z, 50, 0.3, 0.3, 0.3, 0.2, false);
+
+        // Authentic Shatterpoint sound
+        ResourceLocation soundId = ResourceLocation.fromNamespaceAndPath("gametechbcs_spellbooks", "shatterpoint_cast");
+        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(soundId);
+        if (sound != null) {
+            level.playSound(null, origin.x, origin.y, origin.z, sound, SoundSource.PLAYERS, 1.8f, 1.0f);
+        } else {
+            level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.8f, 1.0f);
         }
 
         return true;
@@ -424,7 +536,7 @@ public class InstantBeamHandler {
         return true;
     }
 
-    private static void configureAndSpawnCone(
+    public static void configureAndSpawnCone(
             ServerLevel level,
             LivingEntity shooter,
             Vec3 origin,
@@ -451,6 +563,8 @@ public class InstantBeamHandler {
             DamageSources.applyDamage(target, damage, src);
             if (cone instanceof PoisonBreathProjectile) {
                 target.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 0));
+            } else if (cone.getClass().getSimpleName().contains("AshenBreath")) {
+                target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
             }
         });
     }
