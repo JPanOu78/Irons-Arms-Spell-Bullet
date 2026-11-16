@@ -1,0 +1,107 @@
+[1.0.4] (1.21.1) 2026-11-15
+
+Additions
+
+• Added GTBC's Geomancy Plus (`gtbcs_geomancy_plus`) compatibility:
+  - Fired through firearms with full authentic entity spawning and spell behaviors
+  - Projectiles: Dripstone Bolt, Eroding Boulder, Chunker, Solar Beam
+  - Impacts: Fissure, Tremor Spike, Petrivise, Pillar of the Resounding Earth, Geo Conductor, Solar Storm
+  - Shotgun Integration: Multi-pellet spread for lighter projectiles; focused Slug Cores for heavy impacts
+  - Mobility Spell Classification: Seismic Surf and Tremor Step categorized as mobility (prohibited from firearm chambers)
+• Added GTBC's Spellbooks (`gametechbcs_spellbooks`) compatibility:
+  - Projectiles & Sprays: Psychic Bolt, Ashen Breath
+  - Area Impacts: Ensnare, Crimson Downpour, Acid Rain, Blackout, Call Forth The Dead King, Reversal, Meteor Storm, Nullflare, Shatterpoint, Aerial Collapse
+  - Status Impacts: Displacement, Lingering Strain, Flames Reborn
+• Added Auto-Homing Targeting System:
+  - Intelligently detects front-facing hostile targets using forward cone raycasting for authentic single-projectile spells (`Psychic Bolt`, `Wisp`, `Firefly Swarm`)
+  - Projectiles smoothly curve and track targets automatically
+• Added Safe Muzzle Spawn Positioning:
+  - Projects spell spawn locations forward from the gun muzzle to prevent projectiles from clipping into the shooter's own hitbox
+• Strict Zero-Asset Compliance:
+  - 100% referenced directly through resource paths, BuiltInRegistries, and reflection with zero duplicate files
+
+Changes
+
+• Boss Summon Limitations:
+  - Added area limit to `Call Forth The Dead King`, preventing duplicate Dead King boss spawns in the same area
+• Imbuing Blacklist Expansion:
+  - Added `Astral Sense` and all `Lingering` category spells to the firearm imbuing restriction list
+
+Fixes
+
+• Fixed Dedicated Server Crash on Startup:
+  - Isolated client config and interactive GUI behind `ClientProxy`, preventing dedicated server classloading crashes
+  - Moved client tooltip events to client-only event buses
+• Spell System & Performance Optimization:
+  - Optimized spell projectile trajectories, impact handlers, and particle rendering across addon spells
+
+---
+
+[1.0.3] (1.21.1) 2026-11-08
+
+Additions
+
+• Added Shotgun Compatibility Filtering: Shotguns strictly accept and chamber only Projectile Spells (spread into 8 magic projectiles) and Slug Spells (concentrated single heavy core)
+• Added Shotgun Tooltip Badges: Displays compatibility mode on spell bullets (`✦ Shotgun Mode: Pellets Spread`, `✦ Shotgun Mode: Heavy Slug Core`, or `⚠ Incompatible with Shotguns`)
+• Added Heavy Slug Core System: Heavy/explosive spells (Magma Bomb, Fireball, Comet, Black Hole) automatically fire as a single pinpoint accurate Slug Core from shotguns with full AOE power
+
+Changes
+
+• Preserved vanilla I-Frame mechanics on shotgun spread volleys so single targets take 100% authentic spell damage once without duplicate hit anomalies, while multi-target spread volleys cleanly damage all struck targets
+• Removed the artificial -3 Spell Level penalty on shotguns, allowing spells to fire at their true authentic power and level
+• Added automatic reload and creative chambering fallback to normal ammunition if an incompatible spell is loaded into a shotgun
+
+Fixes
+
+• Fixed Weapon Swapping Bug: Swapping between firearms (e.g. from rifle/pistol with Impact spells to a shotgun) now immediately resets incompatible active spell selection to normal bullets on both client and server, preventing shotguns from erroneously firing Impact/disallowed spells
+• Fixed Creative Mode bypass in shot composition where active spell selection was attached without checking shotgun compatibility
+• Fixed Sacrifice spell bullet passing through friendly summons on direct hit
+• Fixed Sacrifice spell bullet detonating blood explosion properly when hitting owned summons
+• Added authentic weapon and armor equipment for Raise Dead summons based on spell level
+
+---
+
+[1.0.2] (1.21.1) 2026-11-06
+
+Fixes
+
+• Fixed Sacrifice spell bullet passing through friendly summons on direct hit
+• Fixed Sacrifice spell bullet not killing summoned mobs and detonating authentic blood explosion
+• Prevented Sacrifice spell from dealing damage to non-summon entities
+• Added authentic weapon and armor equipment for Raise Dead summons based on spell level (Level 6 now properly wears iron/chainmail armor)
+
+---
+
+[1.0.1] (1.21.1) 2026-11-06
+
+Additions
+
+• Added Interactive HUD Config Screen with real-time preview and drag-and-drop repositioning (Default key: K)
+• Added Action Bar customization: Screen Anchor, Horizontal/Vertical layout, Columns/Rows, and Scale
+• Added Spell Bullet Name display toggle (Show/Hide), 4-way alignment (Above, Below, Left, Right), scale, and axis offsets
+• Added Muzzle Offset and Target Convergence for firearm spellcasting
+• Added Multi-beam spread for Ray spells when fired from shotguns
+• Added Ice Spikes distance-scaling cascade with a giant finisher spike
+
+Changes
+
+• Infused spells directly onto vanilla iron's artifice bullets (removed separate item)
+• Enabled Fireball projectile scattering for shotguns
+• Restricted shotgun spell selection to Projectile and Ray spells
+• Integrated summon spells with native SummonManager and Recast UI
+• Updated spell scaling and damage to use native Iron's Spells calculations
+
+Fixes
+
+• Fixed Action Bar overlapping with spell books and mana bar
+• Fixed unselected Action Bar slots rendering solid black
+• Fixed Fireball and projectile spell level damage scaling
+• Fixed Raise Hell missing ground slam eruption and camera shake
+
+---
+
+[1.0.0] (1.21.1) 2026-11-02
+
+Additions
+
+• Initial release
